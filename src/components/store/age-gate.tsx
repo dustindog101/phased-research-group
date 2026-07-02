@@ -25,12 +25,10 @@ export function AgeGate() {
       if (verified === "true" && timestamp) {
         const age = Date.now() - parseInt(timestamp, 10);
         if (age < 30 * 24 * 60 * 60 * 1000) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setShow(false);
           return;
         }
       }
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShow(true);
     } catch {
       setShow(true);

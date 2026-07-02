@@ -3,7 +3,7 @@ import { FlaskConical, ShieldCheck, Beaker, FileCheck, Truck, Award } from "luci
 
 export const metadata = {
   title: "About Phased Research Group",
-  description: "Learn about our commitment to research-grade peptide synthesis and quality verification.",
+  description: "Why we started PRG and what we do differently.",
 };
 
 export default function AboutPage() {
@@ -16,62 +16,57 @@ export default function AboutPage() {
             About Phased Research Group
           </h1>
           <p className="text-[17px] text-[var(--prg-text-secondary)] leading-[1.7] max-w-[600px]">
-            A research chemical supplier dedicated to precision synthesis, rigorous testing, and
-            transparent documentation for the scientific community.
+            We sell research peptides. We test every lot. We publish the COA before you buy.
+            That shouldn&apos;t be unusual, but here we are.
           </p>
         </div>
       </section>
 
       {/* Story */}
       <section className="py-20">
-        <div className="prg-container max-w-[1000px] grid grid-cols-1 md:grid-cols-2 gap-14 items-center">
-          <div>
-            <span className="prg-eyebrow">Mission</span>
-            <h2 className="text-[28px] font-bold uppercase tracking-[1.5px] mt-2 mb-5" style={{ fontFamily: "var(--font-display)" }}>
-              Precision at Every Phase
-            </h2>
-            <p className="text-[16px] text-[var(--prg-text-secondary)] leading-[1.75] mb-4">
-              Phased Research Group was founded on a simple principle: research materials should meet
-              the highest standards of purity and consistency. Every peptide we supply undergoes
-              multi-stage quality verification using industry-standard analytical methods including
-              HPLC and mass spectrometry.
+        <div className="prg-container max-w-[800px]">
+          <span className="prg-eyebrow">Why We Started</span>
+          <h2 className="text-[28px] font-bold uppercase tracking-[1.5px] mt-2 mb-5" style={{ fontFamily: "var(--font-display)" }}>
+            The Problem We Saw
+          </h2>
+          <div className="text-[16px] text-[var(--prg-text-secondary)] leading-[1.75] space-y-4">
+            <p>
+              The peptide supply chain is a mess. Most &ldquo;vendors&rdquo; are resellers who bought from
+              someone who bought from someone who bought from a lab in China. By the time the vial
+              reaches you, nobody can tell you which batch it came from, when it was tested, or whether
+              the purity number on the label came from an actual lab or a marketing department.
             </p>
-            <p className="text-[16px] text-[var(--prg-text-secondary)] leading-[1.75]">
-              Our phased production approach means each batch is tracked from synthesis through
-              purification, testing, and final packaging — with full documentation available for
-              every lot. This isn&apos;t just a marketing claim; it&apos;s a verifiable commitment
-              backed by Certificates of Analysis.
+            <p>
+              We watched vendors post COAs with no lot numbers. We watched them say &ldquo;available upon
+              request&rdquo; and then ghost the customer. We watched them test one vial from a batch of
+              a thousand and call the whole batch &ldquo;verified.&rdquo;
             </p>
-          </div>
-          <div
-            className="rounded-[var(--prg-radius-lg)] aspect-[4/3] flex items-center justify-center text-white/30 text-[48px] font-bold tracking-[4px]"
-            style={{
-              background: "linear-gradient(135deg, var(--prg-accent) 0%, var(--prg-teal) 100%)",
-              fontFamily: "var(--font-display)",
-            }}
-          >
-            PRG
+            <p>
+              So we built PRG to do it the boring, correct way. Every lot gets tested by a lab that
+              isn&apos;t us. The COA goes on the product page. The lot number on your vial matches the
+              lot number on the document. If we can&apos;t prove it, we don&apos;t ship it.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Values */}
+      {/* What we do differently */}
       <section className="py-20 bg-[var(--prg-bg-alt)] border-y border-[var(--prg-border)]">
         <div className="prg-container">
           <div className="text-center mb-12">
-            <span className="prg-badge prg-badge--teal">Our Values</span>
+            <span className="prg-badge prg-badge--teal">What We Do Differently</span>
             <h2 className="text-[32px] font-bold uppercase tracking-[3px] mt-3.5 mb-3" style={{ fontFamily: "var(--font-display)" }}>
-              What Sets Us Apart
+              No Weasel Words
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { icon: ShieldCheck, title: "Verified Purity", desc: "Every batch meets 99%+ purity verified by independent HPLC analysis. We don't ship without documentation." },
-              { icon: Beaker, title: "Research-Grade", desc: "Synthesized in controlled environments using established protocols. No shortcuts in production." },
-              { icon: FileCheck, title: "Full Documentation", desc: "Certificates of Analysis available for every product lot. Traceability from synthesis to delivery." },
-              { icon: Truck, title: "Reliable Shipping", desc: "Discreet, tracked shipping on every order. Carefully packaged to maintain product integrity." },
-              { icon: Award, title: "Consistent Quality", desc: "Standardized production processes ensure batch-to-batch consistency you can rely on." },
-              { icon: FlaskConical, title: "Scientific Integrity", desc: "We supply research materials exclusively to qualified personnel for lawful laboratory use." },
+              { icon: ShieldCheck, title: "We Name the Lab", desc: "The lab that tests our peptides is independent and contactable. Not 'in-house.' Not 'a partner lab.' A real lab with a real name you can look up." },
+              { icon: Beaker, title: "Every Lot, Not Samples", desc: "We test the actual lot your vial came from. Not a 'representative sample.' Not a single unit from a batch of a thousand. The lot." },
+              { icon: FileCheck, title: "COA Before You Buy", desc: "The COA is on the product page. No email back-and-forth. No 'available upon request.' You see the purity and lot number before you pay." },
+              { icon: Truck, title: "Same Day Shipping", desc: "Order before 2PM CST, it ships today. Tracking emailed same day. No '3-5 business day processing' games." },
+              { icon: Award, title: "Lot Numbers Match", desc: "The lot number printed on your vial matches the lot number on the COA. Every time. If it doesn't, something is wrong." },
+              { icon: FlaskConical, title: "Lyophilized Powder", desc: "Ships as freeze-dried powder, not pre-dissolved solution. Pre-dissolved has hydrolysis and oxidation risk. We don't do that." },
             ].map((v) => {
               const Icon = v.icon;
               return (
@@ -97,15 +92,15 @@ export default function AboutPage() {
             <div className="flex items-center gap-3 mb-5 text-white">
               <ShieldCheck size={22} />
               <h2 className="text-[18px] uppercase tracking-[2px]" style={{ fontFamily: "var(--font-display)" }}>
-                Legal & Compliance Notice
+                Legal &amp; Compliance
               </h2>
             </div>
             <ul className="space-y-3 mb-5">
               {[
-                "Phased Research Group is a research chemical supplier, not a compounding pharmacy or chemical compounding facility under 503A of the FD&C Act.",
-                "We are not an outsourcing facility as defined under 503B.",
-                "All products are sold for laboratory research use only — not for human consumption, diagnostic, or therapeutic use.",
-                "Purchasers must be 21+ and qualified research personnel responsible for lawful handling.",
+                "Phased Research Group is a chemical supplier, not a compounding pharmacy under 503A of the FD&C Act.",
+                "We are not an outsourcing facility under 503B.",
+                "All products are for laboratory research use only. Not for human consumption, diagnostic, or therapeutic use.",
+                "Purchasers must be 21+ and qualified research personnel.",
                 "Products are not evaluated by the FDA and are not medications.",
               ].map((item, i) => (
                 <li key={i} className="pl-4 relative text-white/75 text-sm leading-[1.7]">
@@ -115,7 +110,7 @@ export default function AboutPage() {
               ))}
             </ul>
             <p className="text-[13px] text-white/55 leading-[1.7]">
-              For full terms, please review our{" "}
+              Full details in our{" "}
               <Link href="/terms" className="text-[var(--prg-teal)] underline">Terms of Service</Link>,{" "}
               <Link href="/privacy" className="text-[var(--prg-teal)] underline">Privacy Policy</Link>,{" "}
               <Link href="/shipping" className="text-[var(--prg-teal)] underline">Shipping Policy</Link>, and{" "}

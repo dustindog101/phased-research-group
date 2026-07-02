@@ -116,12 +116,6 @@ export default function LoginPage() {
             Create one
           </Link>
         </p>
-
-        <div className="mt-6 p-4 bg-[var(--prg-bg-alt)] rounded-[var(--prg-radius)] text-xs text-[var(--prg-text-muted)]">
-          <p className="font-semibold text-[var(--prg-text-secondary)] mb-1">Demo Admin Account:</p>
-          <p>Email: admin@phasedresearchgroup.com</p>
-          <p>Password: admin12345</p>
-        </div>
       </div>
     </section>
   );

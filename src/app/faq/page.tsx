@@ -1,50 +1,58 @@
 import { FAQAccordion } from "@/components/store/faq-accordion";
 
 export const metadata = {
-  title: "Frequently Asked Questions",
+  title: "FAQ",
   description: "Common questions about ordering, shipping, payments, and product quality.",
 };
 
 const FAQS = [
   {
     q: "What payment methods do you accept?",
-    a: "We accept cryptocurrency payments including Bitcoin (BTC), Litecoin (LTC), Solana (SOL), and USDC on Ethereum, Polygon, Base, and Solana networks. All payments are processed directly to our self-hosted wallets — no third-party payment processor is involved. This ensures maximum privacy and security for your transactions.",
+    a: "Crypto only right now: Bitcoin, Litecoin, Solana, and USDC on Ethereum, Polygon, Base, and Solana. We know crypto-only is a flag for some buyers, but it keeps our costs down and lets us ship faster. Payments go straight to our wallet, no payment processor in the middle taking a cut or holding your data.",
   },
   {
-    q: "How long does shipping take?",
-    a: "Orders are processed within 1-2 business days after payment confirmation. UPS/USPS Ground shipping takes 3-5 business days. Express shipping (2-Day) is available for an additional fee. You'll receive a tracking number via email once your order ships. Free ground shipping is included on orders over $175.",
+    q: "How fast do you ship?",
+    a: "Order before 2PM CST and it goes out the same day. After that, next business day. Ground shipping is 3-5 business days via UPS or USPS. Express is 2-day. You get a tracking number the day it ships, not three days later. Free ground shipping on orders over $175.",
   },
   {
-    q: "Are your products tested?",
-    a: "Yes. Every product batch undergoes third-party laboratory testing using HPLC (High-Performance Liquid Chromatography) and mass spectrometry to verify purity (99%+ threshold) and molecular identity. Certificates of Analysis (COAs) are available for download on our COA page. If you need a COA for a specific lot, contact us with your order number.",
+    q: "Are your peptides actually tested?",
+    a: "Yes. Every lot gets HPLC and mass-spec testing by a third-party lab, not us. The COA is on the product page before you buy. The lot number on your vial matches the lot number on the COA. If you want to verify the batch with the lab directly, we name the lab on the COA document.",
   },
   {
     q: "Do I need an account to order?",
-    a: "No, you can checkout as a guest with just your email address. However, creating an account lets you track order history, save shipping addresses for faster checkout, and receive order status updates. Account holders can also resume incomplete crypto payments from their order history.",
+    a: "Nope. Guest checkout works fine with just your email. But if you make an account, you get order history, saved addresses, and you can resume an unpaid crypto invoice from your dashboard instead of starting over. Up to you.",
   },
   {
-    q: "How does crypto payment work?",
-    a: "When you select a crypto asset at checkout, we generate a unique payment invoice with a specific amount tied to your order. You send the exact amount to our deposit address (shown as a QR code). Our payment watcher monitors the blockchain and automatically marks your order as paid once the required confirmations are reached. The whole process typically takes 10-30 minutes depending on the asset.",
+    q: "How does the crypto payment actually work?",
+    a: "When you check out, we generate a unique amount for your order (the exact total plus a tiny random suffix so we can match your payment to your order). You scan the QR code or copy the address, send from your wallet, and our system watches the blockchain for that exact amount. Once it confirms, your order is marked paid. Usually takes 10-30 minutes depending on the coin.",
   },
   {
     q: "What if I send the wrong amount?",
-    a: "Always send the exact amount shown on your invoice. The unique amount (with a small random suffix) is how we match your payment to your order. If you underpay, your order will not be marked as paid. If you overpay, contact support with your order number and tx hash — we'll assist with reconciliation. Never send from an exchange wallet if the exact amount matters; use a personal wallet where you control the precise amount sent.",
+    a: "Send the exact amount shown. The unique suffix is how we know it's your payment. If you underpay, the system won't match it and your order stays unpaid. If you overpay, email us with your order number and tx hash and we'll sort it out. Use a personal wallet, not an exchange withdrawal, so you control the exact amount sent.",
   },
   {
-    q: "What is your return policy?",
-    a: "Due to the nature of research chemicals, we cannot accept returns of opened products. If you receive a damaged or incorrect item, contact us within 48 hours of delivery with photos and your order number. We'll arrange a replacement or refund at our discretion. Unopened products in original packaging may be returned within 14 days for a full refund, less shipping costs.",
+    q: "What's your return policy?",
+    a: "Unopened product in original packaging can be returned within 14 days for a refund (minus shipping). Opened or reconstituted product cannot be returned for safety reasons. If something arrives damaged or wrong, email us within 48 hours with photos and your order number. Full details on the Refund Policy page.",
   },
   {
-    q: "Are these products safe for human use?",
-    a: "No. All products are sold exclusively for laboratory research use by qualified personnel. They are not medications, supplements, or food additives. They have not been evaluated by the FDA for safety, efficacy, or quality. Purchasers must be 21+ and are responsible for ensuring lawful handling, storage, and disposal in compliance with all applicable regulations.",
+    q: "Are these safe for human use?",
+    a: "No. These are research chemicals, not supplements or medications. They are not evaluated by the FDA. They are not for human consumption, injection, diagnostic use, or therapeutic use. We sell to qualified research personnel for in vitro laboratory work. If that's not you, don't buy from us.",
   },
   {
     q: "Which states do you ship to?",
-    a: "We currently ship to select US states. Available states are shown in the checkout shipping address form. If your state is not listed, we cannot ship to your location at this time. We do not ship internationally. All shipments require a physical address (no PO boxes for express shipping).",
+    a: "We ship to 12 states right now: TX, CA, FL, NY, AZ, CO, GA, IL, NC, OH, PA, WA. Some states have specific restrictions on certain peptides or require licenses we don't hold. If your state isn't listed, we can't ship to you. No international shipping either.",
   },
   {
-    q: "How can I contact support?",
-    a: "Email us at support@phasedresearchgroup.com. We typically respond within one business day (Mon-Fri, 9am-5pm CST). For urgent order-related questions, include your order number in the subject line. You can also use our contact form on the Contact page.",
+    q: "How should I store the peptides when they arrive?",
+    a: "Store lyophilized powder in the freezer at -20C. Keep away from light and moisture. Once reconstituted with bacteriostatic water, store in the refrigerator at 2-8C and use within a reasonable timeframe. Specific storage instructions come with every order.",
+  },
+  {
+    q: "My vial looks empty. Is that normal?",
+    a: "Yes. The peptide is lyophilized (freeze-dried) powder. It can look like a tiny smear or a small disc at the bottom of the vial. That's normal. It's not supposed to fill the vial. Reconstitute according to the instructions included with your order.",
+  },
+  {
+    q: "How do I contact you?",
+    a: "Email support@phasedresearchgroup.com. We respond within one business day, usually faster during weekday business hours (9-5 CST). For order-specific questions, include your order number in the subject line. We don't do phone support or Telegram.",
   },
 ];
 
@@ -58,7 +66,7 @@ export default function FAQPage() {
             Frequently Asked Questions
           </h1>
           <p className="text-[17px] text-[var(--prg-text-secondary)] leading-[1.7] max-w-[600px]">
-            Common questions about ordering, payments, shipping, and product quality.
+            Real questions from real customers. If yours isn&apos;t here, email us.
           </p>
         </div>
       </section>

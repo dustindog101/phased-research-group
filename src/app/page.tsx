@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, CheckCircle2, Truck, Lock, AlertTriangle, FlaskConical } from "lucide-react";
+import { ShieldCheck, CheckCircle2, Truck, Lock, AlertTriangle, FlaskConical, FileText } from "lucide-react";
 import { getFeaturedProducts } from "@/lib/products";
 import { ProductCard } from "@/components/store/product-card";
 import { VialSVG } from "@/components/store/VialSVG";
@@ -20,45 +20,47 @@ export default async function HomePage() {
           }}
           aria-hidden="true"
         />
-        <div className="prg-container relative z-10 py-20 px-6 max-w-[1000px] mx-auto">
+        <div className="prg-container relative z-10 py-16 md:py-20 px-6 max-w-[1000px] mx-auto">
           <h1
             className="text-center mb-4 text-[clamp(32px,5vw,52px)] font-bold uppercase tracking-[3px]"
             style={{ fontFamily: "var(--font-display)" }}
           >
             Phased Research Group
           </h1>
-          <p className="text-center text-[17px] text-white/80 max-w-[640px] mx-auto mb-12 leading-[1.7]">
-            Precision synthesis. Verified purity.{" "}
-            <em className="not-italic text-[var(--prg-teal)] font-medium">Scientific integrity</em>{" "}
-            at every phase of production.
+          <p className="text-center text-[17px] text-white/80 max-w-[600px] mx-auto mb-12 leading-[1.7]">
+            Research peptides with lot-specific COAs. Every batch tested by an independent lab.
+            No &ldquo;available upon request&rdquo; games.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
             {[
               {
-                title: "Exceptional Purity",
+                title: "99%+ Purity, Verified",
                 desc: (
                   <>
-                    Every batch meets a <strong className="text-white">99%+ purity threshold</strong>{" "}
-                    verified by independent analytical testing.
+                    Every lot is HPLC and mass-spec tested by a third-party lab. The COA goes up{" "}
+                    <strong className="text-white">before the vial ships</strong>, with a lot number
+                    that matches what&apos;s on the label.
                   </>
                 ),
               },
               {
-                title: "Rigorous Standards",
+                title: "No Grading Our Own Homework",
                 desc: (
                   <>
-                    Third-party labs verify identity and purity using HPLC and mass spectrometry for{" "}
-                    <strong className="text-white">reliable documentation</strong>.
+                    We don&apos;t test in-house and call it third-party. The lab that tests our
+                    peptides is <strong className="text-white">independent and contactable</strong>.
+                    You can verify the batch ID yourself.
                   </>
                 ),
               },
               {
-                title: "Transparent Sourcing",
+                title: "Ships Same Day If You Order Before 2PM",
                 desc: (
                   <>
-                    From synthesis to delivery, our process prioritizes{" "}
-                    <strong className="text-white">precision and transparency</strong> at every stage.
+                    Order before 2PM CST, it goes out today. Tracking emailed same day. No{" "}
+                    <strong className="text-white">&ldquo;3-5 business day processing&rdquo;</strong>{" "}
+                    nonsense.
                   </>
                 ),
               },
@@ -86,33 +88,31 @@ export default async function HomePage() {
               className="text-[16px] font-semibold uppercase tracking-[2px]"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              Important Notice
+              Before You Buy
             </h2>
           </div>
           <ul className="text-sm text-white/75 leading-[1.8] space-y-1.5">
             <li className="pl-4 relative">
               <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
-              Users must be <strong className="text-white">21 years of age or older</strong>.
+              You must be <strong className="text-white">21 or older</strong> to buy from us.
             </li>
             <li className="pl-4 relative">
               <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
-              All products are sold <strong className="text-white">for laboratory research use only</strong>.
+              These are <strong className="text-white">research chemicals, not supplements</strong>.
+              Not for human consumption, period.
             </li>
             <li className="pl-4 relative">
               <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
-              Products are not medications and are not evaluated by the FDA.
+              We are not a pharmacy or compounding facility under 503A or 503B of the FD&amp;C Act.
             </li>
             <li className="pl-4 relative">
               <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
-              Customers are responsible for lawful handling and compliance with regulations.
+              You are responsible for handling and storing these properly. That&apos;s on you.
             </li>
           </ul>
           <p className="mt-4 text-[13px] text-white/60">
-            Please review our{" "}
-            <Link href="/terms" className="text-[var(--prg-teal)] underline">
-              Terms of Service
-            </Link>{" "}
-            for full conditions.
+            Read the full <Link href="/terms" className="text-[var(--prg-teal)] underline">Terms of Service</Link>{" "}
+            before ordering.
           </p>
         </div>
       </section>
@@ -153,7 +153,7 @@ export default async function HomePage() {
               Featured Products
             </h2>
             <p className="text-[var(--prg-text-muted)] text-[15px]">
-              Frequently selected research peptides
+              Each vial ships with a lot number that matches the COA
             </p>
           </div>
 
@@ -183,36 +183,82 @@ export default async function HomePage() {
               <ShieldCheck size={26} />
               <div>
                 <strong>Independently Tested</strong>
-                <span>Quality verified on every lot</span>
+                <span>Not by us. By a lab you can call.</span>
               </div>
             </div>
             <div className="prg-trust-item">
               <CheckCircle2 size={26} />
               <div>
                 <strong>99%+ Purity</strong>
-                <span>HPLC verified threshold</span>
+                <span>HPLC verified, not just a number</span>
               </div>
             </div>
             <div className="prg-trust-item">
               <Truck size={26} />
               <div>
-                <strong>Discreet US Shipping</strong>
-                <span>Tracking on every order</span>
+                <strong>Ships From the US</strong>
+                <span>Tracking on every order, same day if before 2PM</span>
               </div>
             </div>
             <div className="prg-trust-item">
               <Lock size={26} />
               <div>
-                <strong>Secure Checkout</strong>
-                <span>Encrypted payments</span>
+                <strong>Crypto Checkout</strong>
+                <span>Direct to our wallet, no middleman</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Categories */}
+      {/* Why we exist */}
       <section className="py-20">
+        <div className="prg-container max-w-[800px]">
+          <div className="text-center mb-10">
+            <span className="prg-badge prg-badge--teal">Why We Exist</span>
+            <h2
+              className="text-[32px] font-bold uppercase tracking-[3px] mt-3.5 mb-3"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              The Industry Has a Trust Problem
+            </h2>
+          </div>
+          <div className="prose prose-slate max-w-none text-[var(--prg-text-secondary)] leading-[1.8]">
+            <p className="mb-4">
+              You already know the deal. Half the peptide vendors online post COAs with no lot number.
+              Others say &ldquo;available upon request&rdquo; and never send one. Some ship thousands of vials
+              while only testing a single unit from the batch. A few got caught forging lab reports.
+            </p>
+            <p className="mb-4">
+              We started PRG because we were tired of it too. Here&apos;s what we do differently:
+            </p>
+            <ul className="space-y-2 mb-4">
+              <li className="pl-6 relative">
+                <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
+                Every lot gets tested. Not sampled. Not &ldquo;representative.&rdquo; The actual lot.
+              </li>
+              <li className="pl-6 relative">
+                <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
+                The COA is on the product page before you buy. No email back-and-forth.
+              </li>
+              <li className="pl-6 relative">
+                <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
+                The lot number on the vial matches the lot number on the COA. Always.
+              </li>
+              <li className="pl-6 relative">
+                <span className="absolute left-0 text-[var(--prg-teal)]">•</span>
+                We name the lab that does our testing. You can verify it yourself.
+              </li>
+            </ul>
+            <p>
+              This isn&apos;t the industry norm. It&apos;s our minimum standard.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Categories */}
+      <section className="py-20 bg-[var(--prg-bg-alt)]">
         <div className="prg-container">
           <div className="text-center mb-12">
             <span className="prg-badge prg-badge--teal">Browse by Category</span>
@@ -223,7 +269,7 @@ export default async function HomePage() {
               Research Categories
             </h2>
             <p className="text-[var(--prg-text-muted)] text-[15px]">
-              Find peptides organized by their primary research application
+              Organized by primary research application
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -248,6 +294,31 @@ export default async function HomePage() {
               </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* COA callout */}
+      <section className="py-20">
+        <div className="prg-container max-w-[800px] text-center">
+          <FileText size={40} className="mx-auto mb-4 text-[var(--prg-accent)]" />
+          <h2
+            className="text-[28px] font-bold uppercase tracking-[3px] mb-4"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Every Vial. Every Lot. Every Time.
+          </h2>
+          <p className="text-[var(--prg-text-secondary)] text-[15px] leading-[1.8] mb-8">
+            We publish the COA for every batch on the product page. The lot number on your vial will
+            match the lot number on the document. If it doesn&apos;t, something is wrong and we want
+            to know about it.
+          </p>
+          <Link
+            href="/coa"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--prg-accent)] text-white text-[13px] font-medium uppercase tracking-[2px] rounded-[var(--prg-radius)] hover:bg-[var(--prg-accent-hover)]"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            View COA Library
+          </Link>
         </div>
       </section>
     </>

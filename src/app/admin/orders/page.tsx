@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { formatPrice } from "@/lib/constants";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 import { AdminOrdersClient } from "@/components/admin/orders-client";
 
 export default async function AdminOrdersPage({
@@ -34,13 +34,22 @@ export default async function AdminOrdersPage({
 
   return (
     <div className="p-6 md:p-8">
-      <div className="mb-6">
-        <h1 className="text-[28px] font-bold uppercase tracking-[3px] mb-1" style={{ fontFamily: "var(--font-display)" }}>
-          Orders
-        </h1>
-        <p className="text-sm text-[var(--prg-text-muted)]">
-          {orders.length} order{orders.length !== 1 ? "s" : ""} found
-        </p>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="text-[28px] font-bold uppercase tracking-[3px] mb-1" style={{ fontFamily: "var(--font-display)" }}>
+            Orders
+          </h1>
+          <p className="text-sm text-[var(--prg-text-muted)]">
+            {orders.length} order{orders.length !== 1 ? "s" : ""} found
+          </p>
+        </div>
+        <a
+          href={`/api/admin/orders/export?status=${sp.status ?? "all"}&paymentStatus=${sp.paymentStatus ?? "all"}`}
+          className="flex items-center gap-2 px-4 py-2 border border-[var(--prg-border)] text-xs font-medium uppercase tracking-[1.5px] rounded-[var(--prg-radius)] hover:border-[var(--prg-accent)] hover:text-[var(--prg-accent)]"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          <Download size={14} /> Export CSV
+        </a>
       </div>
 
       <AdminOrdersClient orders={orders.map((o) => ({

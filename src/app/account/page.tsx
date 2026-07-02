@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/db";
 import { formatPrice } from "@/lib/constants";
-import { Package, MapPin, User as UserIcon, LogOut, ChevronRight } from "lucide-react";
+import { Package, MapPin, User as UserIcon, LogOut, ChevronRight, Settings } from "lucide-react";
 import { signOut } from "@/auth";
 
 export default async function AccountPage() {
@@ -36,7 +36,15 @@ export default async function AccountPage() {
               "use server";
               await signOut({ redirectTo: "/" });
             }}
+            className="flex gap-2"
           >
+            <Link
+              href="/account/settings"
+              className="flex items-center gap-2 px-4 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-xs font-medium uppercase tracking-[1.5px] hover:border-[var(--prg-accent)] hover:text-[var(--prg-accent)]"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              <Settings size={14} /> Settings
+            </Link>
             <button
               type="submit"
               className="flex items-center gap-2 px-4 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-xs font-medium uppercase tracking-[1.5px] hover:border-[var(--prg-danger)] hover:text-[var(--prg-danger)]"
