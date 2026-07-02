@@ -22,10 +22,14 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // Hydration-safe: don't render client-only values until mounted
+  const [mounted, setMounted] = useState(false);
   const itemCount = useCart((s) => s.itemCount());
-  const { user, isAuthenticated } = useCurrentUser();
+  const { isAuthenticated } = useCurrentUser();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
     const onScroll = () => setScrolled(window.scrollY > 4);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
@@ -35,6 +39,10 @@ export function Header() {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
+
+  // Compute display values after mount to avoid hydration mismatch
+  const displayCount = mounted ? itemCount : 0;
+  const showAccountLink = mounted ? isAuthenticated : false;
 
   return (
     <>
@@ -49,11 +57,11 @@ export function Header() {
         }`}
       >
         <div className="prg-container">
-          <div className="flex items-center justify-between gap-8 py-4">
+          <div className="flex items-center justify-between gap-4 md:gap-8 py-4">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-3 shrink-0 hover:opacity-85 transition-opacity">
+            <Link href="/" className="flex items-center gap-2 md:gap-3 shrink-0 hover:opacity-85 transition-opacity">
               <div
-                className="w-10 h-10 rounded-[10px] flex items-center justify-center text-white font-bold text-base"
+                className="w-9 h-9 md:w-10 md:h-10 rounded-[10px] flex items-center justify-center text-white font-bold text-sm md:text-base"
                 style={{
                   background: "linear-gradient(135deg, var(--prg-accent) 0%, var(--prg-teal) 100%)",
                   fontFamily: "var(--font-display)",
@@ -62,22 +70,22 @@ export function Header() {
               >
                 PR
               </div>
-              <div className="leading-[1.1]">
+              <div className="leading-[1.1] hidden sm:block">
                 <div
-                  className="text-[18px] font-semibold uppercase tracking-[2px] text-[var(--prg-text)]"
+                  className="text-[16px] md:text-[18px] font-semibold uppercase tracking-[2px] text-[var(--prg-text)]"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
                   Phased Research
                 </div>
-                <div className="text-[10px] font-normal tracking-[3px] text-[var(--prg-text-muted)]">
+                <div className="text-[9px] md:text-[10px] font-normal tracking-[3px] text-[var(--prg-text-muted)]">
                   Group
                 </div>
               </div>
             </Link>
 
             {/* Desktop nav */}
-            <nav className="hidden md:block flex-1">
-              <ul className="flex items-center justify-center gap-7">
+            <nav className="hidden lg:block flex-1">
+              <ul className="flex items-center justify-center gap-5 xl:gap-7">
                 {NAV.map((n) => (
                   <li key={n.id}>
                     <Link
@@ -101,7 +109,7 @@ export function Header() {
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-3 md:gap-4 shrink-0">
               <button
                 type="button"
                 onClick={() => setSearchOpen((v) => !v)}
@@ -112,7 +120,7 @@ export function Header() {
               </button>
 
               <Link
-                href={isAuthenticated ? "/account" : "/login"}
+                href={showAccountLink ? "/account" : "/login"}
                 className="text-[var(--prg-text-muted)] hover:text-[var(--prg-accent)] transition-colors"
                 aria-label="Account"
               >
@@ -125,9 +133,9 @@ export function Header() {
                 aria-label="Cart"
               >
                 <ShoppingCart size={20} />
-                {itemCount > 0 && (
+                {displayCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-[var(--prg-teal)] text-white text-[10px] font-bold w-[18px] h-[18px] rounded-full flex items-center justify-center">
-                    {itemCount > 9 ? "9+" : itemCount}
+                    {displayCount > 9 ? "9+" : displayCount}
                   </span>
                 )}
               </Link>
@@ -135,7 +143,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setMobileOpen((v) => !v)}
-                className="md:hidden text-[var(--prg-text)]"
+                className="lg:hidden text-[var(--prg-text)]"
                 aria-label="Menu"
               >
                 {mobileOpen ? <X size={22} /> : <Menu size={22} />}
@@ -150,19 +158,19 @@ export function Header() {
             <div className="prg-container py-5">
               <form
                 action="/shop"
-                className="flex items-center gap-3"
+                className="flex items-center gap-2 md:gap-3"
               >
-                <Search className="text-[var(--prg-text-muted)]" size={22} />
+                <Search className="text-[var(--prg-text-muted)] shrink-0" size={22} />
                 <input
                   type="search"
                   name="q"
                   placeholder="Search products, peptides, COAs..."
                   autoFocus
-                  className="flex-1 px-4 py-3 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm bg-[var(--prg-bg-alt)] focus:outline-none focus:border-[var(--prg-accent)]"
+                  className="flex-1 min-w-0 px-3 md:px-4 py-3 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm bg-[var(--prg-bg-alt)] focus:outline-none focus:border-[var(--prg-accent)]"
                 />
                 <button
                   type="submit"
-                  className="bg-[var(--prg-accent)] text-white px-5 py-3 rounded-[var(--prg-radius)] text-xs font-medium uppercase tracking-[1.5px] hover:bg-[var(--prg-accent-hover)] transition-colors"
+                  className="shrink-0 bg-[var(--prg-accent)] text-white px-4 md:px-5 py-3 rounded-[var(--prg-radius)] text-xs font-medium uppercase tracking-[1.5px] hover:bg-[var(--prg-accent-hover)] transition-colors"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
                   Search
@@ -170,7 +178,7 @@ export function Header() {
                 <button
                   type="button"
                   onClick={() => setSearchOpen(false)}
-                  className="text-[var(--prg-text-muted)] hover:text-[var(--prg-text)]"
+                  className="shrink-0 text-[var(--prg-text-muted)] hover:text-[var(--prg-text)]"
                 >
                   <X size={22} />
                 </button>
@@ -181,7 +189,7 @@ export function Header() {
 
         {/* Mobile menu */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-[var(--prg-border)] bg-white">
+          <div className="lg:hidden border-t border-[var(--prg-border)] bg-white">
             <nav className="prg-container py-4">
               <ul className="flex flex-col gap-1">
                 {NAV.map((n) => (

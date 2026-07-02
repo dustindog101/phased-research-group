@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { getSession } from "@/lib/auth";
 import { generateOrderNumber } from "@/lib/constants";
 import type { CryptoAssetId } from "@/lib/payments/constants";
+import { sendOrderConfirmation } from "@/lib/email";
 
 interface CreateOrderBody {
   items: Array<{
@@ -153,6 +154,34 @@ export async function POST(req: NextRequest) {
         where: { code: couponCode },
         data: { usedCount: { increment: 1 } },
       });
+    }
+
+    // Send order confirmation email (non-blocking)
+    const customerEmail = session?.email ?? body.email;
+    if (customerEmail) {
+      sendOrderConfirmation({
+        to: customerEmail,
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        items: order.items.map((i) => ({
+          name: i.name,
+          dosage: i.dosage,
+          quantity: i.quantity,
+          isKit: i.isKit,
+          price: i.price,
+        })),
+        total: order.total,
+        subtotal: order.subtotal,
+        shipping: order.shipping,
+        discount: order.discountAmount,
+        shippingAddress: body.shippingAddress as {
+          fullName: string;
+          line1: string;
+          city: string;
+          state: string;
+          zip: string;
+        },
+      }).catch((e) => console.error("Order confirmation email failed:", e));
     }
 
     return NextResponse.json({

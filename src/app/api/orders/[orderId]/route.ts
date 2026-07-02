@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { getSession } from "@/lib/auth";
 import { verifyPayToken, getPayTokenSecret } from "@/lib/payments";
+import { sendShippingNotification } from "@/lib/email";
 
 export async function GET(
   req: NextRequest,
@@ -71,10 +72,31 @@ export async function PATCH(
     if (key in body) data[key] = body[key];
   }
 
+  // Check if tracking number is being added/changed
+  const previousOrder = await db.order.findUnique({
+    where: { id: orderId },
+    select: { trackingNumber: true, orderNumber: true, user: { select: { email: true } }, guestEmail: true },
+  });
+
   const order = await db.order.update({
     where: { id: orderId },
     data,
     include: { items: true },
   });
+
+  // Send shipping notification if tracking number was just added
+  if (body.trackingNumber && previousOrder?.trackingNumber !== body.trackingNumber) {
+    const customerEmail = previousOrder?.user?.email ?? previousOrder?.guestEmail;
+    if (customerEmail) {
+      sendShippingNotification({
+        to: customerEmail,
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        trackingNumber: body.trackingNumber,
+        carrier: "UPS/USPS",
+      }).catch((e) => console.error("Shipping email failed:", e));
+    }
+  }
+
   return NextResponse.json({ order });
 }

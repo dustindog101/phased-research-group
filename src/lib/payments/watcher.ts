@@ -15,6 +15,7 @@ import { getSettings, isGatewayEnabled } from "./settings";
 import { fetchInboundTransfers } from "./adapters/esplora";
 import { fetchUsdcTransfers } from "./adapters/etherscan";
 import { fetchSolTransfers, fetchUsdcSplTransfers } from "./adapters/solana";
+import { sendPaymentReceived } from "@/lib/email";
 
 const ACTIVE = ["PENDING", "DETECTED"] as const;
 
@@ -119,6 +120,40 @@ async function processIntent(
         updatedAt: now,
       },
     });
+
+    // Deduct inventory + send payment confirmation email (non-blocking)
+    try {
+      const order = await db.order.findUnique({
+        where: { id: intent.orderId },
+        include: { items: true, user: true },
+      });
+      if (order) {
+        // Deduct inventory for each item
+        for (const item of order.items) {
+          const deductQty = item.isKit ? item.quantity * 5 : item.quantity;
+          await db.product.update({
+            where: { id: item.productId },
+            data: { stockQty: { decrement: deductQty } },
+          });
+        }
+
+        // Send payment confirmation email
+        const customerEmail = order.user?.email ?? order.guestEmail;
+        if (customerEmail) {
+          const assetMeta = ASSETS[intent.asset as CryptoAssetId];
+          sendPaymentReceived({
+            to: customerEmail,
+            orderNumber: order.orderNumber,
+            orderId: order.id,
+            asset: assetMeta?.label ?? intent.asset,
+            amount: "confirmed",
+            total: order.total,
+          }).catch((e) => console.error("Payment email failed:", e));
+        }
+      }
+    } catch (e) {
+      console.error("Post-confirmation processing error:", e);
+    }
     return true;
   } else if (intent.status === "PENDING") {
     await db.paymentIntent.update({

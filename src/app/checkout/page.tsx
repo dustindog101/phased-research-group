@@ -394,7 +394,7 @@ export default function CheckoutPage() {
                   <span className="text-xs text-[var(--prg-text-secondary)] leading-relaxed">
                     I confirm that I am purchasing these products <strong>for laboratory research use only</strong>,
                     not for human consumption, diagnostic, or therapeutic use. I have read and agree to the{" "}
-                    <Link href="/about#terms" className="text-[var(--prg-accent)] underline">Terms of Service</Link>.
+                    <Link href="/terms" className="text-[var(--prg-accent)] underline">Terms of Service</Link>.
                   </span>
                 </label>
                 <label className="flex items-start gap-3 cursor-pointer">

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ProductCard, ProductCardSkeleton } from "@/components/store/product-card";
+import { ProductCard } from "@/components/store/product-card";
 import { CATEGORIES } from "@/lib/constants";
 import type { Product } from "@prisma/client";
 import { Search, SlidersHorizontal } from "lucide-react";
@@ -176,13 +176,7 @@ export function ShopClient({ products }: ShopClientProps) {
       {/* Products grid */}
       <section className="py-12">
         <div className="prg-container">
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <ProductCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : paginated.length === 0 ? (
+          {paginated.length === 0 ? (
             <div className="text-center py-20">
               <Search size={48} className="mx-auto mb-4 text-[var(--prg-text-muted)] opacity-40" />
               <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: "var(--font-display)" }}>

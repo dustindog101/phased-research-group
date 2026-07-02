@@ -116,10 +116,10 @@ export default function AboutPage() {
             </ul>
             <p className="text-[13px] text-white/55 leading-[1.7]">
               For full terms, please review our{" "}
-              <Link href="/about#terms" className="text-[var(--prg-teal)] underline">Terms of Service</Link>,{" "}
-              <Link href="/about#privacy" className="text-[var(--prg-teal)] underline">Privacy Policy</Link>,{" "}
-              <Link href="/about#shipping" className="text-[var(--prg-teal)] underline">Shipping Policy</Link>, and{" "}
-              <Link href="/about#refund" className="text-[var(--prg-teal)] underline">Refund Policy</Link>.
+              <Link href="/terms" className="text-[var(--prg-teal)] underline">Terms of Service</Link>,{" "}
+              <Link href="/privacy" className="text-[var(--prg-teal)] underline">Privacy Policy</Link>,{" "}
+              <Link href="/shipping" className="text-[var(--prg-teal)] underline">Shipping Policy</Link>, and{" "}
+              <Link href="/refund" className="text-[var(--prg-teal)] underline">Refund Policy</Link>.
             </p>
           </div>
         </div>

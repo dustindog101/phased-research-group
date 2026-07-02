@@ -109,7 +109,7 @@ export default async function HomePage() {
           </ul>
           <p className="mt-4 text-[13px] text-white/60">
             Please review our{" "}
-            <Link href="/about#terms" className="text-[var(--prg-teal)] underline">
+            <Link href="/terms" className="text-[var(--prg-teal)] underline">
               Terms of Service
             </Link>{" "}
             for full conditions.
