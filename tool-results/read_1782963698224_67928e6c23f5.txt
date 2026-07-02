@@ -1,0 +1,510 @@
+     1→"use client";
+     2→import React, { useState, useEffect, useMemo } from 'react';
+     3→import Link from 'next/link';
+     4→import { useRouter } from 'next/navigation';
+     5→import { withAuth } from '../components/withAuth';
+     6→import { useAuth } from '../hooks/useAuth';
+     7→import { getStorageItem, removeStorageItem } from '../../lib/storage';
+     8→import { submitOrder, validateDiscount, DiscountValidation } from '../../lib/apiClient';
+     9→import { shippingFee as SHIPPING_BASE } from '../../lib/constants';
+    10→import { reviveIdForm } from '@/lib/resellerPortalStorage';
+    11→import {
+    12→    calcOrderPricing,
+    13→    effectivePerIdPrice,
+    14→    resolvePricingMode,
+    15→} from '@/lib/pricing';
+    16→import {
+    17→    createPaymentIntent,
+    18→    cryptoPaymentMethodLabel,
+    19→    MANUAL_PAYMENT_METHODS,
+    20→} from '@/lib/payments';
+    21→import type { CryptoAssetId } from '@/lib/paymentConstants';
+    22→import { IdFormData } from '../../lib/types';
+    23→import { useCryptoPaymentMethods } from '../hooks/useCryptoPaymentMethods';
+    24→import { CryptoPaymentSection, CRYPTO_PAYMENT_PARENT_ID } from './components/CryptoPaymentSection';
+    25→import { PaymentMethodLogo } from '../components/payments/PaymentMethodLogo';
+    26→import { EditIcon } from '../components/icons';
+    27→import { Footer } from '../components/ui';
+    28→import { Spinner } from '../components/ui/Spinner';
+    29→
+    30→const inputClasses =
+    31→    'w-full rounded-xl px-4 py-3 text-sm [color-scheme:dark] bg-white/[0.06] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:ring-2 focus:ring-[var(--accent)]/35 focus:border-[var(--accent)]/50 focus:outline-none transition-all';
+    32→
+    33→function CheckoutPage() {
+    34→    const { user } = useAuth();
+    35→    const router = useRouter();
+    36→    const [orderItems, setOrderItems] = useState<IdFormData[]>([]);
+    37→    const [deliveryMethod, setDeliveryMethod] = useState<'local' | 'shipping'>('shipping');
+    38→    const [activePayment, setActivePayment] = useState<string>(MANUAL_PAYMENT_METHODS[0].name);
+    39→    const { methods: cryptoMethods } = useCryptoPaymentMethods();
+    40→    const [selectedCryptoAsset, setSelectedCryptoAsset] = useState<CryptoAssetId | null>(null);
+    41→    const [cryptoExpanded, setCryptoExpanded] = useState(false);
+    42→    const [orderNotes, setOrderNotes] = useState('');
+    43→    const [shippingFullName, setShippingFullName] = useState('');
+    44→    const [shippingStreetAddress, setShippingStreetAddress] = useState('');
+    45→    const [shippingCity, setShippingCity] = useState('');
+    46→    const [shippingStateProvince, setShippingStateProvince] = useState('');
+    47→    const [shippingZipCode, setShippingZipCode] = useState('');
+    48→    const [orderStatus, setOrderStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+    49→    const [orderMessage, setOrderMessage] = useState('');
+    50→    const [showModal, setShowModal] = useState(false);
+    51→    const [loading, setLoading] = useState(false);
+    52→    const [discountCode, setDiscountCode] = useState('');
+    53→    const [discountResult, setDiscountResult] = useState<DiscountValidation | null>(null);
+    54→    const [discountLoading, setDiscountLoading] = useState(false);
+    55→    const [discountError, setDiscountError] = useState<string | null>(null);
+    56→    const [showDiscountInput, setShowDiscountInput] = useState(false);
+    57→
+    58→    const SHIPPING_FEE = deliveryMethod === 'shipping' ? SHIPPING_BASE : 0;
+    59→    const pricingMode = resolvePricingMode(user?.isReseller ?? false);
+    60→
+    61→    const orderPricing = useMemo(
+    62→        () =>
+    63→            calcOrderPricing({
+    64→                ids: orderItems.map((item) => ({
+    65→                    productId: item.productId,
+    66→                    state: item.state,
+    67→                })),
+    68→                shippingIsDelivery: deliveryMethod === 'shipping',
+    69→                pricingMode,
+    70→                discountCodeAmount: discountResult?.discountAmount ?? 0,
+    71→            }),
+    72→        [orderItems, deliveryMethod, pricingMode, discountResult?.discountAmount],
+    73→    );
+    74→
+    75→    const preDiscountTotal =
+    76→        orderPricing.idSubtotal + orderPricing.handling + orderPricing.shipping;
+    77→    const total = orderPricing.total;
+    78→
+    79→    useEffect(() => {
+    80→        const storedForms = getStorageItem('idPirateOrderForms');
+    81→        if (storedForms) {
+    82→            try {
+    83→                const parsed = JSON.parse(storedForms) as IdFormData[];
+    84→                setOrderItems(parsed.map((item) => reviveIdForm(item)));
+    85→            } catch (error) { console.error('Failed to parse order forms:', error); }
+    86→        }
+    87→    }, []);
+    88→
+    89→    const uploadsIncomplete =
+    90→        orderItems.length > 0 &&
+    91→        orderItems.some((item) => !item.photoKey || !item.signatureKey);
+    92→
+    93→    const isCryptoPayment = activePayment === CRYPTO_PAYMENT_PARENT_ID;
+    94→    const cryptoReady = isCryptoPayment && selectedCryptoAsset !== null;
+    95→    const canSubmit = orderItems.length > 0 && !uploadsIncomplete && (!isCryptoPayment || cryptoReady);
+    96→
+    97→    const handleApplyDiscount = async () => {
+    98→        if (!discountCode.trim()) return;
+    99→        setDiscountLoading(true);
+   100→        setDiscountError(null);
+   101→        setDiscountResult(null);
+   102→        try {
+   103→            const result = await validateDiscount(discountCode.trim(), preDiscountTotal);
+   104→            setDiscountResult(result);
+   105→        } catch (err: any) {
+   106→            setDiscountError(err.message || 'Invalid code.');
+   107→        } finally {
+   108→            setDiscountLoading(false);
+   109→        }
+   110→    };
+   111→
+   112→    const handleRemoveDiscount = () => {
+   113→        setDiscountResult(null);
+   114→        setDiscountCode('');
+   115→        setDiscountError(null);
+   116→    };
+   117→
+   118→    const handleFinalOrderSubmit = async () => {
+   119→        if (!user) { setOrderStatus('error'); setOrderMessage('You must be logged in.'); setShowModal(true); return; }
+   120→        if (orderItems.length === 0) { setOrderStatus('error'); setOrderMessage('No items in order.'); setShowModal(true); return; }
+   121→        if (deliveryMethod === 'shipping' && (!shippingFullName.trim() || !shippingStreetAddress.trim() || !shippingCity.trim() || !shippingStateProvince.trim() || !shippingZipCode.trim())) {
+   122→            setOrderStatus('error'); setOrderMessage('Please fill in all shipping address details.'); setShowModal(true); return;
+   123→        }
+   124→
+   125→        const missingAssets = orderItems.findIndex((item) => !item.photoKey || !item.signatureKey);
+   126→        if (missingAssets !== -1) {
+   127→            setOrderStatus('error');
+   128→            setOrderMessage(`ID #${missingAssets + 1} is missing photo or signature. Use Edit Order to upload.`);
+   129→            setShowModal(true);
+   130→            return;
+   131→        }
+   132→
+   133→        const willUseCrypto = activePayment === CRYPTO_PAYMENT_PARENT_ID && selectedCryptoAsset !== null;
+   134→        setLoading(true);
+   135→        setOrderStatus('processing');
+   136→        setOrderMessage(
+   137→            willUseCrypto ? 'Creating your order and payment invoice…' : 'Submitting your order...'
+   138→        );
+   139→        setShowModal(true);
+   140→
+   141→        const fullShippingAddress = deliveryMethod === 'shipping' ? `${shippingFullName}, ${shippingStreetAddress}, ${shippingCity}, ${shippingStateProvince}, ${shippingZipCode}, USA` : "Local Delivery";
+   142→
+   143→        const idsPayload = orderItems.map(({ id, photo, signature, ...rest }) => ({
+   144→            ...rest,
+   145→            dob: `${rest.dobYear}-${rest.dobMonth}-${rest.dobDay}`,
+   146→            issueDate: `${rest.issueYear}-${rest.issueMonth}-${rest.issueDay}`,
+   147→        }));
+   148→
+   149→        const paymentMethodLabel = isCryptoPayment && selectedCryptoAsset
+   150→            ? cryptoPaymentMethodLabel(selectedCryptoAsset)
+   151→            : activePayment;
+   152→
+   153→        const orderPayload = {
+   154→            userId: user.userId,
+   155→            shipping: fullShippingAddress,
+   156→            paymentMethod: paymentMethodLabel,
+   157→            notes: orderNotes,
+   158→            price: {
+   159→                subtotal: orderPricing.idSubtotal,
+   160→                total: orderPricing.total,
+   161→            },
+   162→            discountCode: discountResult?.code || undefined,
+   163→            ids: idsPayload,
+   164→        };
+   165→
+   166→        try {
+   167→            const data = await submitOrder(orderPayload);
+   168→            removeStorageItem('idPirateOrderForms');
+   169→
+   170→            if (willUseCrypto && selectedCryptoAsset) {
+   171→                try {
+   172→                    await createPaymentIntent(data.orderId, selectedCryptoAsset);
+   173→                } catch (intentErr: unknown) {
+   174→                    setOrderStatus('error');
+   175→                    setOrderMessage(
+   176→                        intentErr instanceof Error
+   177→                            ? intentErr.message
+   178→                            : 'Failed to create payment invoice. Your order was created — open My Orders to try again.'
+   179→                    );
+   180→                    setLoading(false);
+   181→                    return;
+   182→                }
+   183→                setShowModal(false);
+   184→                router.push(`/orders?pay=${data.orderId}`);
+   185→                return;
+   186→            }
+   187→
+   188→            setOrderStatus('success');
+   189→            setOrderMessage(`Order placed! ID: ${data.orderId}`);
+   190→        } catch (error: any) {
+   191→            setOrderStatus('error');
+   192→            setOrderMessage(`Error: ${error.message || 'Failed to submit.'}`);
+   193→        } finally {
+   194→            setLoading(false);
+   195→        }
+   196→    };
+   197→
+   198→    return (
+   199→        <div className="min-h-screen flex flex-col">
+   200→            <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex-grow">
+   201→                <header className="mb-10">
+   202→                    <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text-primary)] tracking-tight animate-fade-up">
+   203→                        Checkout
+   204→                    </h1>
+   205→                    <p className="mt-2 text-sm text-[var(--text-secondary)] animate-fade-up delay-1">Review your order and submit.</p>
+   206→                </header>
+   207→
+   208→                <div className="flex flex-col lg:flex-row gap-6">
+   209→                    {/* Left Column */}
+   210→                    <div className="w-full lg:w-2/3 space-y-6">
+   211→                        {/* Order Items */}
+   212→                        <div className="glass p-5 sm:p-6 animate-fade-up delay-1">
+   213→                            <div className="flex items-center justify-between mb-4">
+   214→                                <h2 className="text-lg font-bold text-[var(--text-primary)]">Order Summary</h2>
+   215→                                {user?.isReseller && (
+   216→                                    <span className="text-xs font-medium px-2 py-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+   217→                                        Wholesale
+   218→                                    </span>
+   219→                                )}
+   220→                            </div>
+   221→                            {orderItems.length > 0 ? (
+   222→                                <div className="space-y-3">
+   223→                                    {orderItems.map((item, index) => (
+   224→                                        <div key={item.id || index} className="flex justify-between items-center bg-white/[0.04] p-4 rounded-xl border border-[var(--border)]">
+   225→                                            <div>
+   226→                                                <p className="font-semibold text-[var(--text-primary)]">{item.state} ID</p>
+   227→                                                <p className="text-xs text-[var(--text-secondary)]">{item.firstName || 'N/A'} {item.lastName || 'N/A'}</p>
+   228→                                            </div>
+   229→                                            <p className="text-price font-bold">
+   230→                                                ${effectivePerIdPrice(item.productId ?? item.state, orderItems.length, pricingMode).toFixed(2)}
+   231→                                            </p>
+   232→                                        </div>
+   233→                                    ))}
+   234→                                </div>
+   235→                            ) : (
+   236→                                <p className="text-[var(--text-secondary)] text-center py-4 text-sm">No IDs added to your order.</p>
+   237→                            )}
+   238→                            <Link href="/order/new" className="inline-flex items-center gap-2 text-[var(--accent)] hover:text-[var(--accent-hover)] mt-4 text-sm font-medium transition-colors">
+   239→                                <EditIcon className="h-4 w-4" /> Edit Order
+   240→                            </Link>
+   241→                        </div>
+   242→
+   243→                        {/* Order Notes */}
+   244→                        <div className="glass p-5 sm:p-6 animate-fade-up delay-2">
+   245→                            <label htmlFor="order-notes" className="text-label block mb-3">Order Notes</label>
+   246→                            <textarea
+   247→                                id="order-notes"
+   248→                                rows={3}
+   249→                                className={`${inputClasses} resize-none`}
+   250→                                placeholder="Any special instructions..."
+   251→                                value={orderNotes}
+   252→                                onChange={(e) => setOrderNotes(e.target.value)}
+   253→                            />
+   254→                        </div>
+   255→
+   256→                        {/* Delivery Method */}
+   257→                        <div className="glass p-5 sm:p-6 animate-fade-up delay-3">
+   258→                            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">Delivery</h2>
+   259→                            <div className="grid grid-cols-2 gap-3">
+   260→                                <button
+   261→                                    onClick={() => setDeliveryMethod('local')}
+   262→                                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${deliveryMethod === 'local'
+   263→                                        ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+   264→                                        : 'border-[var(--border)] hover:border-[var(--border-hover)]'
+   265→                                        }`}
+   266→                                >
+   267→                                    <h3 className="font-semibold text-sm text-[var(--text-primary)]">Local Pickup</h3>
+   268→                                    <p className="text-xs text-[var(--text-secondary)] mt-1">Free</p>
+   269→                                </button>
+   270→                                <button
+   271→                                    onClick={() => setDeliveryMethod('shipping')}
+   272→                                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${deliveryMethod === 'shipping'
+   273→                                        ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+   274→                                        : 'border-[var(--border)] hover:border-[var(--border-hover)]'
+   275→                                        }`}
+   276→                                >
+   277→                                    <h3 className="font-semibold text-sm text-[var(--text-primary)]">Shipping</h3>
+   278→                                    <p className="text-xs text-[var(--text-secondary)] mt-1">${SHIPPING_FEE.toFixed(2)}</p>
+   279→                                </button>
+   280→                            </div>
+   281→                            {deliveryMethod === 'shipping' && (
+   282→                                <div className="mt-5 border-t border-[var(--border)] pt-5 space-y-3">
+   283→                                    <h3 className="text-label mb-2">Shipping Address</h3>
+   284→                                    <input type="text" placeholder="Full Name" className={inputClasses} value={shippingFullName} onChange={(e) => setShippingFullName(e.target.value)} />
+   285→                                    <input type="text" placeholder="Street Address" className={inputClasses} value={shippingStreetAddress} onChange={(e) => setShippingStreetAddress(e.target.value)} />
+   286→                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   287→                                        <input type="text" placeholder="City" className={inputClasses} value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} />
+   288→                                        <input type="text" placeholder="State" className={inputClasses} value={shippingStateProvince} onChange={(e) => setShippingStateProvince(e.target.value)} />
+   289→                                        <input type="text" placeholder="ZIP Code" className={inputClasses} value={shippingZipCode} onChange={(e) => setShippingZipCode(e.target.value)} />
+   290→                                    </div>
+   291→                                </div>
+   292→                            )}
+   293→                        </div>
+   294→                    </div>
+   295→
+   296→                    {/* Right Column — Sticky Sidebar */}
+   297→                    <div className="w-full lg:w-1/3">
+   298→                        <div className="lg:sticky top-20 glass p-5 sm:p-6 space-y-6 animate-fade-up delay-2">
+   299→                            {/* Cost Breakdown */}
+   300→                            <div>
+   301→                                <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">Total</h2>
+   302→                                <div className="space-y-2 text-sm">
+   303→                                    {orderPricing.volumeSavings > 0 && (
+   304→                                        <div className="flex justify-between text-[var(--text-tertiary)]">
+   305→                                            <span>List subtotal ({orderItems.length} IDs)</span>
+   306→                                            <span className="line-through">${orderPricing.listSubtotal.toFixed(2)}</span>
+   307→                                        </div>
+   308→                                    )}
+   309→                                    <div className="flex justify-between text-[var(--text-secondary)]">
+   310→                                        <span>
+   311→                                            {pricingMode === 'reseller_wholesale'
+   312→                                                ? `Wholesale subtotal (${orderItems.length} IDs)`
+   313→                                                : `Subtotal (${orderItems.length} IDs)`}
+   314→                                        </span>
+   315→                                        <span>${orderPricing.idSubtotal.toFixed(2)}</span>
+   316→                                    </div>
+   317→                                    {orderPricing.volumeSavings > 0 && (
+   318→                                        <div className="flex justify-between text-emerald-400">
+   319→                                            <span>Volume savings</span>
+   320→                                            <span>−${orderPricing.volumeSavings.toFixed(2)}</span>
+   321→                                        </div>
+   322→                                    )}
+   323→                                    <div className="flex justify-between text-[var(--text-secondary)]">
+   324→                                        <span>Processing</span>
+   325→                                        <span>${orderPricing.handling.toFixed(2)}</span>
+   326→                                    </div>
+   327→                                    {deliveryMethod === 'shipping' && (
+   328→                                        <div className="flex justify-between text-[var(--text-secondary)]">
+   329→                                            <span>Shipping</span>
+   330→                                            <span>${orderPricing.shipping.toFixed(2)}</span>
+   331→                                        </div>
+   332→                                    )}
+   333→                                    {discountResult && (
+   334→                                        <div className="flex justify-between text-emerald-400">
+   335→                                            <span>Discount ({discountResult.code})</span>
+   336→                                            <span>-${discountResult.discountAmount.toFixed(2)}</span>
+   337→                                        </div>
+   338→                                    )}
+   339→                                    <div className="border-t border-[var(--border)] my-3" />
+   340→                                    <div className="flex justify-between text-[var(--text-primary)] font-bold text-xl">
+   341→                                        <span>Total</span>
+   342→                                        <span className="text-price">${total.toFixed(2)}</span>
+   343→                                    </div>
+   344→                                </div>
+   345→                            </div>
+   346→
+   347→                            {/* Discount Code */}
+   348→                            <div>
+   349→                                {discountResult ? (
+   350→                                    /* Applied state */
+   351→                                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+   352→                                        <div className="flex items-center justify-between">
+   353→                                            <div>
+   354→                                                <p className="text-sm font-bold text-emerald-400 flex items-center gap-1">
+   355→                                                    ✅ {discountResult.code}
+   356→                                                </p>
+   357→                                                <p className="text-xs text-emerald-400/90 mt-0.5">
+   358→                                                    {discountResult.discountType === 'percentage'
+   359→                                                        ? `${discountResult.value}% off — saving $${discountResult.discountAmount.toFixed(2)}`
+   360→                                                        : `$${discountResult.value.toFixed(2)} off applied`}
+   361→                                                </p>
+   362→                                            </div>
+   363→                                            <button
+   364→                                                onClick={handleRemoveDiscount}
+   365→                                                className="text-xs text-emerald-400 hover:text-red-400 font-medium transition-colors"
+   366→                                            >
+   367→                                                Remove
+   368→                                            </button>
+   369→                                        </div>
+   370→                                    </div>
+   371→                                ) : showDiscountInput ? (
+   372→                                    /* Input state */
+   373→                                    <div>
+   374→                                        <h2 className="text-label mb-3">Discount Code</h2>
+   375→                                        <div className="flex gap-2">
+   376→                                            <input
+   377→                                                type="text"
+   378→                                                placeholder="Enter code..."
+   379→                                                className={inputClasses}
+   380→                                                value={discountCode}
+   381→                                                onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+   382→                                                onKeyDown={(e) => e.key === 'Enter' && handleApplyDiscount()}
+   383→                                                autoFocus
+   384→                                            />
+   385→                                            <button
+   386→                                                onClick={handleApplyDiscount}
+   387→                                                disabled={discountLoading || !discountCode.trim()}
+   388→                                                className="btn btn-primary px-4 py-2.5 text-sm flex-shrink-0"
+   389→                                            >
+   390→                                                {discountLoading ? <Spinner size="sm" /> : 'Apply'}
+   391→                                            </button>
+   392→                                        </div>
+   393→                                        {discountError && (
+   394→                                            <p className="text-red-400 text-xs mt-2">{discountError}</p>
+   395→                                        )}
+   396→                                        <button
+   397→                                            onClick={() => { setShowDiscountInput(false); setDiscountError(null); setDiscountCode(''); }}
+   398→                                            className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] mt-2 transition-colors"
+   399→                                        >
+   400→                                            Cancel
+   401→                                        </button>
+   402→                                    </div>
+   403→                                ) : (
+   404→                                    /* Collapsed state */
+   405→                                    <button
+   406→                                        onClick={() => setShowDiscountInput(true)}
+   407→                                        className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] font-medium transition-colors"
+   408→                                    >
+   409→                                        🏷️ Have a discount code?
+   410→                                    </button>
+   411→                                )}
+   412→                            </div>
+   413→
+   414→                            {/* Payment */}
+   415→                            <div>
+   416→                                <h2 className="text-label mb-3">Payment Method</h2>
+   417→                                <div className="space-y-2">
+   418→                                    <CryptoPaymentSection
+   419→                                        methods={cryptoMethods}
+   420→                                        isActive={isCryptoPayment}
+   421→                                        expanded={cryptoExpanded}
+   422→                                        selectedAsset={selectedCryptoAsset}
+   423→                                        onSelectParent={() => {
+   424→                                            setActivePayment(CRYPTO_PAYMENT_PARENT_ID);
+   425→                                            setCryptoExpanded(true);
+   426→                                        }}
+   427→                                        onSelectAsset={setSelectedCryptoAsset}
+   428→                                    />
+   429→                                    {MANUAL_PAYMENT_METHODS.map(method => (
+   430→                                        <button
+   431→                                            key={method.name}
+   432→                                            type="button"
+   433→                                            onClick={() => {
+   434→                                                setActivePayment(method.name);
+   435→                                                setSelectedCryptoAsset(null);
+   436→                                                setCryptoExpanded(false);
+   437→                                            }}
+   438→                                            className={`w-full flex items-center p-3 rounded-xl border transition-all cursor-pointer ${activePayment === method.name
+   439→                                                ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+   440→                                                : 'border-[var(--border)] hover:border-[var(--border-hover)]'
+   441→                                                }`}
+   442→                                        >
+   443→                                            <span className="flex items-center justify-center h-7 min-w-7 px-1 rounded-lg bg-white/[0.06] border border-[var(--border)] mr-3 shrink-0">
+   444→                                                <PaymentMethodLogo manualMethod={method.name} size="sm" />
+   445→                                            </span>
+   446→                                            <span className="text-sm font-medium text-[var(--text-primary)]">{method.name}</span>
+   447→                                        </button>
+   448→                                    ))}
+   449→                                </div>
+   450→                                {isCryptoPayment && !selectedCryptoAsset && (
+   451→                                    <p className="text-xs text-amber-400/90 mt-2">Select a crypto asset to continue.</p>
+   452→                                )}
+   453→                            </div>
+   454→
+   455→                            {/* Submit */}
+   456→                            <button
+   457→                                onClick={handleFinalOrderSubmit}
+   458→                                className="btn btn-primary w-full py-3.5 text-base"
+   459→                                disabled={loading || !canSubmit}
+   460→                                title={uploadsIncomplete ? 'Upload photo and signature for each ID on the order form' : undefined}
+   461→                            >
+   462→                                {loading ? (
+   463→                                    <><Spinner size="sm" className="text-white" /> Processing...</>
+   464→                                ) : 'Submit Order'}
+   465→                            </button>
+   466→                        </div>
+   467→                    </div>
+   468→                </div>
+   469→            </div>
+   470→
+   471→            <Footer />
+   472→
+   473→            {/* Modal */}
+   474→            {showModal && (
+   475→                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+   476→                    <div className={`glass rounded-2xl border shadow-xl p-8 max-w-sm w-full ${orderStatus === 'success' ? 'border-emerald-500/30' :
+   477→                        orderStatus === 'error' ? 'border-red-500/30' : 'border-[var(--accent)]/30'
+   478→                        } animate-fade-up`}>
+   479→                        <h3 className={`text-xl font-bold mb-3 text-center ${orderStatus === 'success' ? 'text-emerald-400' :
+   480→                            orderStatus === 'error' ? 'text-red-400' : 'text-[var(--accent)]'
+   481→                            }`}>
+   482→                            {orderStatus === 'processing' ? 'Processing...' : orderStatus === 'success' ? 'Order Placed!' : 'Error'}
+   483→                        </h3>
+   484→                        <p className="text-sm text-[var(--text-secondary)] text-center mb-6">{orderMessage}</p>
+   485→                        {!loading && (
+   486→                            <button
+   487→                                onClick={() => {
+   488→                                    setShowModal(false);
+   489→                                    if (orderStatus === 'success') {
+   490→                                        router.push('/dashboard');
+   491→                                    }
+   492→                                }}
+   493→                                className="btn btn-primary w-full"
+   494→                            >
+   495→                                {orderStatus === 'success' ? 'Go to Dashboard' : 'Close'}
+   496→                            </button>
+   497→                        )}
+   498→                        {loading && (
+   499→                            <div className="flex justify-center">
+   500→                                <Spinner size="md" className="text-[var(--accent)]" />
+   501→                            </div>
+   502→                        )}
+   503→                    </div>
+   504→                </div>
+   505→            )}
+   506→        </div>
+   507→    );
+   508→}
+   509→
+   510→export default withAuth(CheckoutPage);

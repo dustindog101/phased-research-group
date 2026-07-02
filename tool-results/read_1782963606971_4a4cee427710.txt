@@ -1,0 +1,889 @@
+     1→/* Phased Research Group — Storefront App */
+     2→
+     3→const PRG_CART_KEY = 'prg_cart';
+     4→const PRG_COUPON_KEY = 'prg_coupon';
+     5→const PRG_FREE_SHIPPING = 175;
+     6→const PRG_SHIPPING_GROUND = 10.75;
+     7→const PRG_SHIPPING_EXPRESS = 22.95;
+     8→const PRG_PRODUCT_DESC = 'This material is supplied exclusively for lawful laboratory research use by qualified personnel.';
+     9→const PRG_VALID_COUPONS = { PRG10: 0.1, RESEARCH15: 0.15 };
+    10→
+    11→function formatPrice(n) {
+    12→  return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    13→}
+    14→
+    15→function vialSVG(color, size = 140) {
+    16→  const h = size;
+    17→  const w = size * 0.45;
+    18→  return `<svg viewBox="0 0 90 200" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+    19→    <rect x="30" y="0" width="30" height="18" rx="3" fill="${color}" opacity="0.9"/>
+    20→    <rect x="33" y="18" width="24" height="6" fill="#94a3b8"/>
+    21→    <rect x="22" y="24" width="46" height="160" rx="8" fill="rgba(255,255,255,0.85)" stroke="#cbd5e1" stroke-width="2"/>
+    22→    <rect x="26" y="60" width="38" height="100" rx="4" fill="${color}" opacity="0.12"/>
+    23→    <text x="45" y="115" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="${color}" opacity="0.6">PRG</text>
+    24→    <ellipse cx="45" cy="184" rx="23" ry="6" fill="#e2e8f0"/>
+    25→  </svg>`;
+    26→}
+    27→
+    28→function vialThumbSVG(color) {
+    29→  return `<svg class="prg-ptable-thumb" viewBox="0 0 90 200" xmlns="http://www.w3.org/2000/svg">
+    30→    <rect x="30" y="0" width="30" height="18" rx="3" fill="${color}"/>
+    31→    <rect x="22" y="24" width="46" height="160" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+    32→    <rect x="26" y="60" width="38" height="80" rx="4" fill="${color}" opacity="0.15"/>
+    33→  </svg>`;
+    34→}
+    35→
+    36→/* ── Cart storage ── */
+    37→function sanitizeCart(raw) {
+    38→  if (!Array.isArray(raw)) return [];
+    39→  const validIds = new Set(PRG_PRODUCTS.map(p => p.id));
+    40→  const merged = {};
+    41→  raw.forEach(item => {
+    42→    if (!item || typeof item.id !== 'string' || !validIds.has(item.id)) return;
+    43→    const qty = Math.min(99, Math.max(1, parseInt(item.qty, 10) || 0));
+    44→    if (qty < 1) return;
+    45→    merged[item.id] = (merged[item.id] || 0) + qty;
+    46→  });
+    47→  return Object.entries(merged).map(([id, qty]) => ({ id, qty }));
+    48→}
+    49→
+    50→function getCart() {
+    51→  try {
+    52→    const stored = JSON.parse(localStorage.getItem(PRG_CART_KEY));
+    53→    return sanitizeCart(stored);
+    54→  } catch {
+    55→    return [];
+    56→  }
+    57→}
+    58→
+    59→function ensureCleanCart() {
+    60→  let stored;
+    61→  try { stored = JSON.parse(localStorage.getItem(PRG_CART_KEY)); } catch { stored = null; }
+    62→  const clean = sanitizeCart(stored);
+    63→  if (!Array.isArray(stored) || JSON.stringify(stored) !== JSON.stringify(clean)) {
+    64→    localStorage.setItem(PRG_CART_KEY, JSON.stringify(clean));
+    65→  }
+    66→  return clean;
+    67→}
+    68→
+    69→function getCoupon() {
+    70→  return localStorage.getItem(PRG_COUPON_KEY) || '';
+    71→}
+    72→
+    73→function setCoupon(code) {
+    74→  if (code) localStorage.setItem(PRG_COUPON_KEY, code.toUpperCase());
+    75→  else localStorage.removeItem(PRG_COUPON_KEY);
+    76→  updateCartUI();
+    77→}
+    78→
+    79→function saveCart(cart) {
+    80→  const clean = sanitizeCart(cart);
+    81→  localStorage.setItem(PRG_CART_KEY, JSON.stringify(clean));
+    82→  updateCartUI();
+    83→}
+    84→
+    85→function addToCart(productId, qty = 1) {
+    86→  const product = PRG_PRODUCTS.find(p => p.id === productId);
+    87→  if (!product) return;
+    88→  const cart = getCart();
+    89→  const existing = cart.find(i => i.id === productId);
+    90→  if (existing) existing.qty += qty;
+    91→  else cart.push({ id: productId, qty: Math.max(1, qty) });
+    92→  saveCart(cart);
+    93→}
+    94→
+    95→function setCartQty(productId, qty) {
+    96→  const cart = getCart();
+    97→  const item = cart.find(i => i.id === productId);
+    98→  if (!item) return;
+    99→  if (qty <= 0) removeFromCart(productId);
+   100→  else { item.qty = qty; saveCart(cart); }
+   101→}
+   102→
+   103→function removeFromCart(productId) {
+   104→  saveCart(getCart().filter(i => i.id !== productId));
+   105→}
+   106→
+   107→function clearCart() {
+   108→  saveCart([]);
+   109→}
+   110→
+   111→function cartSubtotal() {
+   112→  return getCart().reduce((sum, item) => {
+   113→    const p = PRG_PRODUCTS.find(x => x.id === item.id);
+   114→    return sum + (p ? p.price * item.qty : 0);
+   115→  }, 0);
+   116→}
+   117→
+   118→function cartDiscount() {
+   119→  const code = getCoupon();
+   120→  const rate = PRG_VALID_COUPONS[code];
+   121→  return rate ? cartSubtotal() * rate : 0;
+   122→}
+   123→
+   124→function cartTotalAfterDiscount() {
+   125→  return Math.max(0, cartSubtotal() - cartDiscount());
+   126→}
+   127→
+   128→function cartCount() {
+   129→  return getCart().reduce((sum, i) => sum + i.qty, 0);
+   130→}
+   131→
+   132→function getShippingCost(subtotal, method = 'ground') {
+   133→  if (subtotal >= PRG_FREE_SHIPPING) return 0;
+   134→  return method === 'express' ? PRG_SHIPPING_EXPRESS : PRG_SHIPPING_GROUND;
+   135→}
+   136→
+   137→function updateShippingBar(subtotal) {
+   138→  const fill = document.getElementById('prg-shipping-fill');
+   139→  const text = document.getElementById('prg-shipping-text');
+   140→  if (!fill || !text) return;
+   141→  const remaining = Math.max(0, PRG_FREE_SHIPPING - subtotal);
+   142→  const pct = Math.min(100, (subtotal / PRG_FREE_SHIPPING) * 100);
+   143→  fill.style.width = pct + '%';
+   144→  if (remaining <= 0) {
+   145→    text.textContent = '✓ You qualify for free UPS/USPS Ground shipping!';
+   146→    text.classList.add('prg-shipping-qualify');
+   147→  } else {
+   148→    text.textContent = `Add ${formatPrice(remaining)} more for free ground shipping`;
+   149→    text.classList.remove('prg-shipping-qualify');
+   150→  }
+   151→}
+   152→
+   153→function cartItemHTML(item, options = {}) {
+   154→  const p = PRG_PRODUCTS.find(x => x.id === item.id);
+   155→  if (!p) return '';
+   156→  const lineTotal = p.price * item.qty;
+   157→  const qtyClass = options.compact ? 'prg-cart-qty prg-cart-qty--compact' : 'prg-cart-qty';
+   158→  const controls = options.readonly
+   159→    ? `<span class="prg-side-cart-item-qty">Qty: ${item.qty}</span>`
+   160→    : `<div class="${qtyClass}">
+   161→        <button type="button" data-qty-minus="${p.id}" aria-label="Decrease quantity">−</button>
+   162→        <input type="number" value="${item.qty}" min="1" max="99" data-qty-input="${p.id}" aria-label="Quantity">
+   163→        <button type="button" data-qty-plus="${p.id}" aria-label="Increase quantity">+</button>
+   164→      </div>`;
+   165→
+   166→  return `<div class="prg-side-cart-item" data-cart-item="${p.id}">
+   167→    <a href="product.html?id=${p.id}" class="prg-side-cart-item-thumb">${vialThumbSVG(p.capColor)}</a>
+   168→    <div class="prg-side-cart-item-info">
+   169→      <a href="product.html?id=${p.id}" class="prg-side-cart-item-name">${p.displayName}</a>
+   170→      <div class="prg-side-cart-item-price">${formatPrice(p.price)} each · <strong>${formatPrice(lineTotal)}</strong></div>
+   171→      ${controls}
+   172→    </div>
+   173→    <button class="prg-side-cart-item-remove" data-remove="${p.id}" aria-label="Remove ${p.displayName}">×</button>
+   174→  </div>`;
+   175→}
+   176→
+   177→function bindCartControls(root = document) {
+   178→  root.querySelectorAll('[data-remove]').forEach(btn => {
+   179→    btn.onclick = () => removeFromCart(btn.dataset.remove);
+   180→  });
+   181→  root.querySelectorAll('[data-qty-minus]').forEach(btn => {
+   182→    btn.onclick = () => {
+   183→      const item = getCart().find(i => i.id === btn.dataset.qtyMinus);
+   184→      if (item) setCartQty(item.id, item.qty - 1);
+   185→    };
+   186→  });
+   187→  root.querySelectorAll('[data-qty-plus]').forEach(btn => {
+   188→    btn.onclick = () => {
+   189→      const item = getCart().find(i => i.id === btn.dataset.qtyPlus);
+   190→      if (item) setCartQty(item.id, item.qty + 1);
+   191→    };
+   192→  });
+   193→  root.querySelectorAll('[data-qty-input]').forEach(input => {
+   194→    input.onchange = () => setCartQty(input.dataset.qtyInput, parseInt(input.value) || 1);
+   195→  });
+   196→}
+   197→
+   198→function setCartActionsEnabled(enabled) {
+   199→  ['prg-checkout-btn', 'prg-view-cart-btn'].forEach(id => {
+   200→    const el = document.getElementById(id);
+   201→    if (!el) return;
+   202→    el.classList.toggle('prg-btn--disabled', !enabled);
+   203→    el.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+   204→    if (el.tagName === 'A') el.tabIndex = enabled ? 0 : -1;
+   205→  });
+   206→  const couponWrap = document.querySelector('.prg-side-cart-coupon');
+   207→  if (couponWrap) couponWrap.style.display = enabled ? '' : 'none';
+   208→  const shippingBar = document.getElementById('prg-shipping-bar');
+   209→  if (shippingBar) shippingBar.style.display = enabled ? '' : 'none';
+   210→}
+   211→
+   212→function renderSideCart() {
+   213→  const itemsEl = document.getElementById('prg-side-cart-items');
+   214→  const subtotalEl = document.getElementById('prg-side-cart-subtotal');
+   215→  const discountRow = document.getElementById('prg-discount-row');
+   216→  const discountEl = document.getElementById('prg-side-cart-discount');
+   217→  const appliedEl = document.getElementById('prg-side-cart-applied');
+   218→  if (!itemsEl) return;
+   219→
+   220→  const cart = getCart();
+   221→  const subtotal = cartSubtotal();
+   222→  const discount = cartDiscount();
+   223→
+   224→  if (cart.length === 0) {
+   225→    itemsEl.innerHTML = `<div class="prg-side-cart-empty">
+   226→      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+   227→      <p>Your cart is empty</p>
+   228→      <span class="prg-side-cart-empty-hint">Add research products from the shop or product list.</span>
+   229→      <a href="shop.html" class="prg-btn prg-btn--primary prg-btn--sm">Browse Products</a>
+   230→    </div>`;
+   231→    if (subtotalEl) subtotalEl.textContent = formatPrice(0);
+   232→    if (discountRow) discountRow.style.display = 'none';
+   233→    if (appliedEl) { appliedEl.style.display = 'none'; appliedEl.innerHTML = ''; }
+   234→    setCartActionsEnabled(false);
+   235→    updateShippingBar(0);
+   236→    return;
+   237→  }
+   238→
+   239→  itemsEl.innerHTML = cart.map(i => cartItemHTML(i, { compact: true })).join('');
+   240→  if (subtotalEl) subtotalEl.textContent = formatPrice(subtotal);
+   241→  if (discountRow && discountEl) {
+   242→    discountRow.style.display = discount > 0 ? 'flex' : 'none';
+   243→    discountEl.textContent = '-' + formatPrice(discount);
+   244→  }
+   245→  if (appliedEl) {
+   246→    const code = getCoupon();
+   247→    appliedEl.style.display = code ? 'block' : 'none';
+   248→    appliedEl.innerHTML = code
+   249→      ? `<span class="prg-coupon-applied">Coupon <strong>${code}</strong> applied <button type="button" id="prg-remove-coupon">Remove</button></span>`
+   250→      : '';
+   251→    document.getElementById('prg-remove-coupon')?.addEventListener('click', () => setCoupon(''));
+   252→  }
+   253→  setCartActionsEnabled(true);
+   254→  updateShippingBar(subtotal);
+   255→  bindCartControls(itemsEl);
+   256→}
+   257→
+   258→function updateCartUI() {
+   259→  document.querySelectorAll('.prg-cart-count').forEach(el => {
+   260→    const count = cartCount();
+   261→    el.textContent = count;
+   262→    el.style.display = count > 0 ? 'flex' : 'none';
+   263→  });
+   264→  renderSideCart();
+   265→  if (document.body.dataset.page === 'cart') renderCartPage();
+   266→  if (document.body.dataset.page === 'checkout') renderCheckoutSummary();
+   267→}
+   268→
+   269→function openSideCart() {
+   270→  document.getElementById('prg-side-cart')?.classList.add('active');
+   271→  document.body.style.overflow = 'hidden';
+   272→}
+   273→
+   274→function closeSideCart() {
+   275→  document.getElementById('prg-side-cart')?.classList.remove('active');
+   276→  document.body.style.overflow = '';
+   277→}
+   278→
+   279→/* ── Add to cart button states ── */
+   280→function bindAddToCart() {
+   281→  document.querySelectorAll('[data-add-cart]').forEach(btn => {
+   282→    const clone = btn.cloneNode(true);
+   283→    btn.replaceWith(clone);
+   284→  });
+   285→  document.querySelectorAll('[data-add-cart]').forEach(btn => {
+   286→    btn.addEventListener('click', e => {
+   287→      e.preventDefault();
+   288→      const id = btn.dataset.addCart;
+   289→      const qtyInput = document.querySelector(`[data-qty-for="${id}"]`);
+   290→      const qty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+   291→      btn.classList.add('adding');
+   292→      const textEl = btn.querySelector('.prg-atc-text') || btn;
+   293→      const origText = btn.querySelector('.prg-atc-text')?.textContent || btn.textContent;
+   294→      if (btn.querySelector('.prg-atc-text')) {
+   295→        btn.querySelector('.prg-atc-text').style.display = 'none';
+   296→        btn.querySelector('.prg-atc-loading')?.style && (btn.querySelector('.prg-atc-loading').style.display = 'inline');
+   297→      }
+   298→      setTimeout(() => {
+   299→        addToCart(id, qty);
+   300→        btn.classList.remove('adding');
+   301→        btn.classList.add('added');
+   302→        if (btn.querySelector('.prg-atc-done')) {
+   303→          btn.querySelector('.prg-atc-loading').style.display = 'none';
+   304→          btn.querySelector('.prg-atc-done').style.display = 'inline';
+   305→        } else {
+   306→          btn.textContent = 'Added ✓';
+   307→        }
+   308→        openSideCart();
+   309→        setTimeout(() => {
+   310→          btn.classList.remove('added');
+   311→          if (btn.querySelector('.prg-atc-text')) {
+   312→            btn.querySelector('.prg-atc-done').style.display = 'none';
+   313→            btn.querySelector('.prg-atc-text').style.display = 'inline';
+   314→            btn.querySelector('.prg-atc-text').textContent = origText;
+   315→          } else btn.textContent = 'Add to Cart';
+   316→        }, 2000);
+   317→      }, 300);
+   318→    });
+   319→  });
+   320→}
+   321→
+   322→function productCardHTML(p) {
+   323→  return `<article class="prg-product-card" data-id="${p.id}" data-category="${p.category}">
+   324→    <a href="product.html?id=${p.id}" class="prg-product-card__image">${vialSVG(p.capColor)}</a>
+   325→    <div class="prg-product-card__body">
+   326→      <a href="product.html?id=${p.id}" class="prg-product-card__title">${p.displayName}</a>
+   327→      <div class="prg-product-card__dosage">${p.dosage} · ${p.sku}</div>
+   328→      <div class="prg-product-card__price">${formatPrice(p.price)}</div>
+   329→    </div>
+   330→    <div class="prg-product-card__actions">
+   331→      <a href="product.html?id=${p.id}" class="prg-card-btn prg-card-btn--details">Details</a>
+   332→      <button class="prg-card-btn prg-card-btn--cart" data-add-cart="${p.id}">Add to Cart</button>
+   333→    </div>
+   334→  </article>`;
+   335→}
+   336→
+   337→function productTableRowHTML(p) {
+   338→  return `<tr class="prg-ptable-row" data-id="${p.id}" data-category="${p.category}" data-search="${(p.displayName + ' ' + p.name + ' ' + p.sku + ' ' + p.categoryLabel).toLowerCase()}">
+   339→    <td>
+   340→      <div class="prg-ptable-product">
+   341→        <a href="product.html?id=${p.id}">${vialThumbSVG(p.capColor)}</a>
+   342→        <a href="product.html?id=${p.id}" class="prg-ptable-product-name">${p.displayName}</a>
+   343→      </div>
+   344→    </td>
+   345→    <td class="prg-ptable-desc">${PRG_PRODUCT_DESC}</td>
+   346→    <td class="prg-ptable-price">${formatPrice(p.price)}</td>
+   347→    <td><input type="number" class="prg-qty" value="1" min="1" max="99" data-qty-for="${p.id}"></td>
+   348→    <td>
+   349→      <button class="prg-add-to-cart" data-add-cart="${p.id}">
+   350→        <span class="prg-atc-text">Add to Cart</span>
+   351→        <span class="prg-atc-loading" style="display:none">Adding...</span>
+   352→        <span class="prg-atc-done" style="display:none">✓ Added</span>
+   353→      </button>
+   354→    </td>
+   355→  </tr>`;
+   356→}
+   357→
+   358→/* ── Shop page ── */
+   359→function initShop() {
+   360→  const gridEl = document.getElementById('prg-products-grid');
+   361→  if (!gridEl) return;
+   362→
+   363→  let state = { search: '', category: 'all', sort: 'name-asc', page: 1 };
+   364→  const PER_PAGE = 20;
+   365→  const searchInput = document.getElementById('prg-product-search');
+   366→  const sortSelect = document.getElementById('prg-sort');
+   367→  const countEl = document.getElementById('prg-product-count');
+   368→  const paginationEl = document.getElementById('prg-pagination');
+   369→
+   370→  function getFiltered() {
+   371→    let list = [...PRG_PRODUCTS];
+   372→    if (state.category !== 'all') list = list.filter(p => p.category === state.category);
+   373→    if (state.search) {
+   374→      const q = state.search.toLowerCase();
+   375→      list = list.filter(p => p.displayName.toLowerCase().includes(q) || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+   376→    }
+   377→    switch (state.sort) {
+   378→      case 'price-asc': list.sort((a, b) => a.price - b.price); break;
+   379→      case 'price-desc': list.sort((a, b) => b.price - a.price); break;
+   380→      case 'name-desc': list.sort((a, b) => b.displayName.localeCompare(a.displayName)); break;
+   381→      default: list.sort((a, b) => a.displayName.localeCompare(b.displayName));
+   382→    }
+   383→    return list;
+   384→  }
+   385→
+   386→  function render() {
+   387→    const filtered = getFiltered();
+   388→    const total = filtered.length;
+   389→    const pages = Math.ceil(total / PER_PAGE) || 1;
+   390→    if (state.page > pages) state.page = Math.max(1, pages);
+   391→    const pageItems = filtered.slice((state.page - 1) * PER_PAGE, state.page * PER_PAGE);
+   392→    if (countEl) countEl.textContent = `${total} product${total !== 1 ? 's' : ''}`;
+   393→    gridEl.innerHTML = pageItems.map(productCardHTML).join('');
+   394→    if (paginationEl) {
+   395→      let html = '';
+   396→      if (state.page > 1) html += `<button data-page="${state.page - 1}">←</button>`;
+   397→      for (let i = 1; i <= pages; i++) {
+   398→        html += i === state.page ? `<span class="active">${i}</span>` : `<button data-page="${i}">${i}</button>`;
+   399→      }
+   400→      if (state.page < pages) html += `<button data-page="${state.page + 1}">→</button>`;
+   401→      paginationEl.innerHTML = html;
+   402→      paginationEl.querySelectorAll('button').forEach(b => {
+   403→        b.onclick = () => { state.page = +b.dataset.page; render(); window.scrollTo({ top: 400, behavior: 'smooth' }); };
+   404→      });
+   405→    }
+   406→    bindAddToCart();
+   407→  }
+   408→
+   409→  searchInput?.addEventListener('input', e => { state.search = e.target.value; state.page = 1; render(); });
+   410→  sortSelect?.addEventListener('change', e => { state.sort = e.target.value; render(); });
+   411→  document.querySelectorAll('.prg-filter-btn').forEach(btn => {
+   412→    btn.addEventListener('click', () => {
+   413→      document.querySelectorAll('.prg-filter-btn').forEach(b => b.classList.remove('active'));
+   414→      btn.classList.add('active');
+   415→      state.category = btn.dataset.filter;
+   416→      state.page = 1;
+   417→      render();
+   418→    });
+   419→  });
+   420→  const params = new URLSearchParams(location.search);
+   421→  const q = params.get('q');
+   422→  const cat = params.get('category');
+   423→  if (q && searchInput) { searchInput.value = q; state.search = q; }
+   424→  if (cat && PRG_PRODUCTS.some(p => p.category === cat)) {
+   425→    state.category = cat;
+   426→    document.querySelectorAll('.prg-filter-btn').forEach(b => {
+   427→      b.classList.toggle('active', b.dataset.filter === cat);
+   428→    });
+   429→  }
+   430→  render();
+   431→}
+   432→
+   433→/* ── Product list page (full table) ── */
+   434→function initProductList() {
+   435→  const tbody = document.getElementById('prg-ptable-body');
+   436→  const countEl = document.getElementById('prg-ptable-count');
+   437→  const searchInput = document.getElementById('prg-product-search');
+   438→  if (!tbody) return;
+   439→
+   440→  const grouped = {};
+   441→  PRG_PRODUCTS.forEach(p => {
+   442→    if (!grouped[p.categoryLabel]) grouped[p.categoryLabel] = [];
+   443→    grouped[p.categoryLabel].push(p);
+   444→  });
+   445→
+   446→  function renderTable(filter = '') {
+   447→    const q = filter.toLowerCase();
+   448→    let visible = 0;
+   449→    let html = '';
+   450→    Object.entries(grouped).forEach(([cat, items]) => {
+   451→      const filtered = q ? items.filter(p =>
+   452→        (p.displayName + p.name + p.sku + cat).toLowerCase().includes(q)
+   453→      ) : items;
+   454→      if (!filtered.length) return;
+   455→      visible += filtered.length;
+   456→      html += `<tr class="prg-ptable-cat" data-cat="${cat}"><td colspan="5">
+   457→        <span class="prg-ptable-cat-name">${cat}</span>
+   458→        <span class="prg-ptable-cat-count">${filtered.length}</span>
+   459→      </td></tr>`;
+   460→      html += filtered.map(productTableRowHTML).join('');
+   461→    });
+   462→    tbody.innerHTML = html || `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--prg-text-muted)">No products match your search.</td></tr>`;
+   463→    if (countEl) countEl.textContent = `${visible} product${visible !== 1 ? 's' : ''}`;
+   464→    bindAddToCart();
+   465→  }
+   466→
+   467→  searchInput?.addEventListener('input', e => renderTable(e.target.value));
+   468→  renderTable();
+   469→}
+   470→
+   471→function cartCardHTML(item) {
+   472→  const p = PRG_PRODUCTS.find(x => x.id === item.id);
+   473→  if (!p) return '';
+   474→  return `<article class="prg-cart-card" data-cart-item="${p.id}">
+   475→    <a href="product.html?id=${p.id}" class="prg-cart-card-thumb">${vialThumbSVG(p.capColor)}</a>
+   476→    <div class="prg-cart-card-body">
+   477→      <a href="product.html?id=${p.id}" class="prg-cart-card-name">${p.displayName}</a>
+   478→      <span class="prg-cart-card-sku">${p.sku}</span>
+   479→      <div class="prg-cart-card-row">
+   480→        <div class="prg-cart-qty">
+   481→          <button type="button" data-qty-minus="${p.id}" aria-label="Decrease">−</button>
+   482→          <input type="number" value="${item.qty}" min="1" max="99" data-qty-input="${p.id}" aria-label="Quantity">
+   483→          <button type="button" data-qty-plus="${p.id}" aria-label="Increase">+</button>
+   484→        </div>
+   485→        <strong class="prg-cart-card-line">${formatPrice(p.price * item.qty)}</strong>
+   486→      </div>
+   487→      <div class="prg-cart-card-unit">${formatPrice(p.price)} each</div>
+   488→    </div>
+   489→    <button class="prg-cart-remove" data-remove="${p.id}" aria-label="Remove">×</button>
+   490→  </article>`;
+   491→}
+   492→
+   493→/* ── Cart page ── */
+   494→function renderCartPage() {
+   495→  const el = document.getElementById('prg-cart-content');
+   496→  if (!el) return;
+   497→  const cart = getCart();
+   498→  const subtotal = cartSubtotal();
+   499→  const discount = cartDiscount();
+   500→  const total = cartTotalAfterDiscount();
+   501→
+   502→  if (!cart.length) {
+   503→    el.innerHTML = `<div class="prg-cart-empty">
+   504→      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+   505→      <h2>Your cart is empty</h2>
+   506→      <p>Looks like you haven't added any research products yet.</p>
+   507→      <div class="prg-cart-empty-actions">
+   508→        <a href="shop.html" class="prg-btn prg-btn--primary">Browse Shop</a>
+   509→        <a href="product-list.html" class="prg-btn prg-btn--outline">View Product List</a>
+   510→      </div>
+   511→    </div>`;
+   512→    return;
+   513→  }
+   514→
+   515→  el.innerHTML = `
+   516→    <div class="prg-cart-layout">
+   517→      <div class="prg-cart-items-wrap">
+   518→        <div class="prg-cart-cards">${cart.map(cartCardHTML).join('')}</div>
+   519→        <table class="prg-cart-table">
+   520→          <thead><tr><th>Product</th><th>Price</th><th>Quantity</th><th>Subtotal</th><th></th></tr></thead>
+   521→          <tbody>
+   522→            ${cart.map(item => {
+   523→              const p = PRG_PRODUCTS.find(x => x.id === item.id);
+   524→              if (!p) return '';
+   525→              return `<tr>
+   526→                <td><div class="prg-cart-table-product">
+   527→                  <a href="product.html?id=${p.id}">${vialThumbSVG(p.capColor)}</a>
+   528→                  <div><a href="product.html?id=${p.id}" class="prg-cart-table-name">${p.displayName}</a><span class="prg-cart-table-sku">${p.sku}</span></div>
+   529→                </div></td>
+   530→                <td>${formatPrice(p.price)}</td>
+   531→                <td><div class="prg-cart-qty">
+   532→                  <button type="button" data-qty-minus="${p.id}" aria-label="Decrease">−</button>
+   533→                  <input type="number" value="${item.qty}" min="1" max="99" data-qty-input="${p.id}" aria-label="Quantity">
+   534→                  <button type="button" data-qty-plus="${p.id}" aria-label="Increase">+</button>
+   535→                </div></td>
+   536→                <td><strong>${formatPrice(p.price * item.qty)}</strong></td>
+   537→                <td><button class="prg-cart-remove" data-remove="${p.id}" aria-label="Remove">×</button></td>
+   538→              </tr>`;
+   539→            }).join('')}
+   540→          </tbody>
+   541→        </table>
+   542→        <div class="prg-cart-actions-row">
+   543→          <a href="shop.html" class="prg-btn prg-btn--outline">← Continue Shopping</a>
+   544→          <button type="button" class="prg-btn prg-btn--outline" id="prg-clear-cart">Clear Cart</button>
+   545→        </div>
+   546→      </div>
+   547→      <div class="prg-cart-summary">
+   548→        <h3>Cart Totals</h3>
+   549→        <div class="prg-cart-summary-row"><span>Subtotal</span><span>${formatPrice(subtotal)}</span></div>
+   550→        ${discount > 0 ? `<div class="prg-cart-summary-row prg-cart-summary-discount"><span>Discount (${getCoupon()})</span><span>-${formatPrice(discount)}</span></div>` : ''}
+   551→        <div class="prg-cart-summary-row"><span>Shipping</span><span>Calculated at checkout</span></div>
+   552→        <div class="prg-cart-summary-row prg-cart-summary-total"><span>Total</span><span>${formatPrice(total)}</span></div>
+   553→        <div class="prg-side-cart-coupon" style="padding:0;border:none;margin:16px 0">
+   554→          <form id="prg-cart-coupon-form">
+   555→            <input type="text" id="prg-cart-coupon-input" placeholder="Coupon code" value="${getCoupon()}">
+   556→            <button type="submit">Apply</button>
+   557→          </form>
+   558→          <p class="prg-coupon-msg" id="prg-cart-coupon-msg"></p>
+   559→        </div>
+   560→        <a href="checkout.html" class="prg-btn prg-btn--primary prg-btn--full">Proceed to Checkout</a>
+   561→        <p class="prg-cart-note">Free ground shipping on orders over ${formatPrice(PRG_FREE_SHIPPING)}</p>
+   562→      </div>
+   563→    </div>`;
+   564→
+   565→  bindCartControls(el);
+   566→  document.getElementById('prg-clear-cart')?.addEventListener('click', () => { if (confirm('Clear all items from your cart?')) clearCart(); });
+   567→  document.getElementById('prg-cart-coupon-form')?.addEventListener('submit', e => {
+   568→    e.preventDefault();
+   569→    applyCoupon(document.getElementById('prg-cart-coupon-input').value, 'prg-cart-coupon-msg');
+   570→  });
+   571→}
+   572→
+   573→function applyCoupon(code, msgId) {
+   574→  const msgEl = document.getElementById(msgId || 'prg-coupon-msg');
+   575→  const upper = (code || '').trim().toUpperCase();
+   576→  if (!upper) { setCoupon(''); if (msgEl) msgEl.textContent = ''; return; }
+   577→  if (PRG_VALID_COUPONS[upper]) {
+   578→    setCoupon(upper);
+   579→    if (msgEl) { msgEl.textContent = 'Coupon applied!'; msgEl.className = 'prg-coupon-msg success'; }
+   580→  } else {
+   581→    if (msgEl) { msgEl.textContent = 'Invalid coupon code'; msgEl.className = 'prg-coupon-msg error'; }
+   582→  }
+   583→}
+   584→
+   585→/* ── Checkout ── */
+   586→function renderCheckoutSummary() {
+   587→  const summaryEl = document.getElementById('prg-checkout-summary');
+   588→  if (!summaryEl) return;
+   589→  const cart = getCart();
+   590→  if (!cart.length) {
+   591→    window.location.href = 'cart.html';
+   592→    return;
+   593→  }
+   594→  const subtotal = cartSubtotal();
+   595→  const discount = cartDiscount();
+   596→  const afterDiscount = cartTotalAfterDiscount();
+   597→  const shipMethod = document.querySelector('input[name="shipping_method"]:checked')?.value || 'ground';
+   598→  const shipping = getShippingCost(afterDiscount, shipMethod);
+   599→  const total = afterDiscount + shipping;
+   600→
+   601→  summaryEl.innerHTML = `
+   602→    <h3>Your Order</h3>
+   603→    <div class="prg-checkout-items">
+   604→      ${cart.map(item => {
+   605→        const p = PRG_PRODUCTS.find(x => x.id === item.id);
+   606→        if (!p) return '';
+   607→        return `<div class="prg-checkout-item"><span>${p.displayName} × ${item.qty}</span><span>${formatPrice(p.price * item.qty)}</span></div>`;
+   608→      }).join('')}
+   609→    </div>
+   610→    <div class="prg-checkout-totals">
+   611→      <div class="prg-cart-summary-row"><span>Subtotal</span><span id="prg-co-subtotal">${formatPrice(subtotal)}</span></div>
+   612→      ${discount > 0 ? `<div class="prg-cart-summary-row prg-cart-summary-discount"><span>Discount</span><span>-${formatPrice(discount)}</span></div>` : ''}
+   613→      <div class="prg-cart-summary-row"><span>Shipping</span><span id="prg-co-shipping">${shipping === 0 ? 'FREE' : formatPrice(shipping)}</span></div>
+   614→      <div class="prg-cart-summary-row prg-cart-summary-total"><span>Total</span><span id="prg-co-total">${formatPrice(total)}</span></div>
+   615→    </div>`;
+   616→
+   617→  document.querySelectorAll('input[name="shipping_method"]').forEach(r => {
+   618→    r.onchange = renderCheckoutSummary;
+   619→  });
+   620→}
+   621→
+   622→function initCheckout() {
+   623→  renderCheckoutSummary();
+   624→  document.getElementById('prg-checkout-form')?.addEventListener('submit', e => {
+   625→    e.preventDefault();
+   626→    const form = e.target;
+   627→    if (!form.checkValidity()) { form.reportValidity(); return; }
+   628→    if (!form.querySelector('#prg-research-confirm')?.checked) {
+   629→      alert('Please confirm that you are purchasing for lawful laboratory research only.');
+   630→      return;
+   631→    }
+   632→    const orderId = 'PRG-' + Date.now().toString(36).toUpperCase();
+   633→    const cart = getCart();
+   634→    const subtotal = cartSubtotal();
+   635→    const discount = cartDiscount();
+   636→    const afterDiscount = cartTotalAfterDiscount();
+   637→    const shipMethod = form.querySelector('input[name="shipping_method"]:checked')?.value || 'ground';
+   638→    const shipping = getShippingCost(afterDiscount, shipMethod);
+   639→    const order = {
+   640→      id: orderId,
+   641→      date: new Date().toISOString(),
+   642→      customer: Object.fromEntries(new FormData(form)),
+   643→      items: cart.map(i => ({ ...i, product: PRG_PRODUCTS.find(p => p.id === i.id) })),
+   644→      subtotal, discount, shipping, total: afterDiscount + shipping,
+   645→      coupon: getCoupon(),
+   646→    };
+   647→    localStorage.setItem('prg_last_order', JSON.stringify(order));
+   648→    clearCart();
+   649→    setCoupon('');
+   650→    window.location.href = `order-confirmation.html?id=${orderId}`;
+   651→  });
+   652→}
+   653→
+   654→/* ── Featured / product detail ── */
+   655→function initFeatured() {
+   656→  const el = document.getElementById('prg-featured-products');
+   657→  if (!el) return;
+   658→  el.innerHTML = PRG_PRODUCTS.filter(p => p.featured).slice(0, 8).map(productCardHTML).join('');
+   659→  bindAddToCart();
+   660→}
+   661→
+   662→function productDetailsHTML(p) {
+   663→  return `
+   664→    <div class="prg-product-analytical">
+   665→      <div class="prg-product-analytical-head">Analytical Data</div>
+   666→      <p><a href="coa.html" class="prg-product-coa-link">Certificate of Analysis — Request COA</a></p>
+   667→      <p class="prg-product-coa-note">The Certificate of Analysis constitutes the authoritative product description. COA documentation is available for each batch upon request.</p>
+   668→    </div>
+   669→    <div class="prg-product-details-grid">
+   670→      <div class="prg-product-details-card">
+   671→        <div><strong>SKU:</strong> ${p.sku}</div>
+   672→        <div><strong>Product Name:</strong> ${p.name}</div>
+   673→        <div><strong>Dosage:</strong> ${p.dosage} per vial</div>
+   674→        <div><strong>Category:</strong> ${p.categoryLabel}</div>
+   675→      </div>
+   676→      <div class="prg-product-details-card">
+   677→        <div><strong>Physical Description:</strong> Lyophilized powder</div>
+   678→        <div><strong>Package Format:</strong> 3mL Research Vial</div>
+   679→        <div><strong>Kit Pricing:</strong> ${formatPrice(p.kitPrice)} (5 vials)</div>
+   680→      </div>
+   681→      <div class="prg-product-details-card">
+   682→        <div><strong>Storage Conditions:</strong> Store at −20°C (−4°F); protect from moisture and prolonged light exposure</div>
+   683→      </div>
+   684→      <div class="prg-product-details-card">
+   685→        <div><strong>Research Classification:</strong> Research Use Only (RUO)</div>
+   686→      </div>
+   687→    </div>`;
+   688→}
+   689→
+   690→function bindProductAddToCart(p, btnId = 'prg-detail-add', qtyId = 'prg-detail-qty') {
+   691→  const run = () => {
+   692→    const qty = parseInt(document.getElementById(qtyId)?.value) || 1;
+   693→    const btn = document.getElementById(btnId);
+   694→    if (btn) {
+   695→      btn.classList.add('adding');
+   696→      btn.textContent = 'Adding…';
+   697→      setTimeout(() => {
+   698→        addToCart(p.id, qty);
+   699→        btn.classList.remove('adding');
+   700→        btn.classList.add('added');
+   701→        btn.textContent = 'Added ✓';
+   702→        openSideCart();
+   703→        setTimeout(() => {
+   704→          btn.classList.remove('added');
+   705→          btn.textContent = 'Add to Cart';
+   706→        }, 2000);
+   707→      }, 250);
+   708→    } else {
+   709→      addToCart(p.id, qty);
+   710→      openSideCart();
+   711→    }
+   712→  };
+   713→  document.getElementById(btnId)?.addEventListener('click', run);
+   714→  document.getElementById('prg-mobile-add')?.addEventListener('click', run);
+   715→}
+   716→
+   717→function initProductPage() {
+   718→  const el = document.getElementById('prg-product-detail');
+   719→  if (!el) return;
+   720→  const p = PRG_PRODUCTS.find(x => x.id === new URLSearchParams(location.search).get('id'));
+   721→  if (!p) {
+   722→    el.innerHTML = '<div class="prg-container prg-single-product"><div class="prg-product-not-found"><h1>Product not found</h1><p>This product may have been removed or the link is incorrect.</p><a href="shop.html" class="prg-btn prg-btn--primary">Back to Shop</a></div></div>';
+   723→    return;
+   724→  }
+   725→  document.title = `${p.displayName} – Phased Research Group`;
+   726→  const related = PRG_PRODUCTS.filter(x => x.category === p.category && x.id !== p.id).slice(0, 4);
+   727→  const crumb = (label, href) => href
+   728→    ? `<a href="${href}">${label}</a><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`
+   729→    : `<span>${label}</span>`;
+   730→
+   731→  el.innerHTML = `
+   732→    <div class="prg-container prg-single-product">
+   733→      <nav class="prg-breadcrumb" aria-label="Breadcrumb">
+   734→        ${crumb('Home', 'index.html')}
+   735→        ${crumb('Shop', 'shop.html')}
+   736→        ${crumb(p.categoryLabel, `shop.html?category=${p.category}`)}
+   737→        ${crumb(p.displayName)}
+   738→      </nav>
+   739→      <div class="prg-product-layout">
+   740→        <div class="prg-product-buy">
+   741→          <h1 class="prg-product-title">${p.displayName}</h1>
+   742→          <div class="prg-product-gallery">${vialSVG(p.capColor, 240)}</div>
+   743→          <div class="prg-product-buy-sticky">
+   744→            <div class="prg-product-price">${formatPrice(p.price)}</div>
+   745→            <p class="prg-product-kit">Kit price (5 vials): ${formatPrice(p.kitPrice)}</p>
+   746→            <div class="prg-product-stock prg-product-stock--in">
+   747→              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+   748→              In Stock — Ready to Ship
+   749→            </div>
+   750→            <form class="prg-product-cart-form" onsubmit="return false">
+   751→              <div class="prg-cart-qty prg-cart-qty--product">
+   752→                <button type="button" id="prg-qty-minus" aria-label="Decrease quantity">−</button>
+   753→                <input type="number" id="prg-detail-qty" value="1" min="1" max="99" class="prg-qty" aria-label="Quantity">
+   754→                <button type="button" id="prg-qty-plus" aria-label="Increase quantity">+</button>
+   755→              </div>
+   756→              <button type="button" class="prg-btn prg-btn--primary prg-btn--full" id="prg-detail-add">Add to Cart</button>
+   757→            </form>
+   758→            <div class="prg-product-meta">
+   759→              <div class="prg-product-meta__row">
+   760→                <span class="prg-product-meta__label">Category</span>
+   761→                <span class="prg-product-meta__value"><a href="shop.html?category=${p.category}">${p.categoryLabel}</a></span>
+   762→              </div>
+   763→              <div class="prg-product-meta__row">
+   764→                <span class="prg-product-meta__label">SKU</span>
+   765→                <span class="prg-product-meta__value">${p.sku}</span>
+   766→              </div>
+   767→            </div>
+   768→          </div>
+   769→        </div>
+   770→        <aside class="prg-product-desc-col">
+   771→          <div class="prg-product-overview">
+   772→            <span class="prg-eyebrow">Overview</span>
+   773→            <div class="prg-prose">${PRG_PRODUCT_DESC} No medical, therapeutic, dietary supplement, or veterinary use is represented or implied.</div>
+   774→          </div>
+   775→          <div class="prg-product-desc">
+   776→            <span class="prg-eyebrow">Product Details</span>
+   777→            <h2>About this material</h2>
+   778→            <div class="prg-prose prg-product-desc-body">
+   779→              <p>Lyophilized research material, ${p.dosage} per vial. Independently tested for identity and purity. Intended for controlled, non-clinical laboratory environments by qualified personnel.</p>
+   780→              ${productDetailsHTML(p)}
+   781→            </div>
+   782→          </div>
+   783→          <div class="prg-product-ruo">
+   784→            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+   785→            <p><strong>Research Use Only (RUO).</strong> Not for human or animal consumption. Sold strictly for laboratory research purposes.</p>
+   786→          </div>
+   787→        </aside>
+   788→      </div>
+   789→      ${related.length ? `<section class="prg-related"><h2>Related products</h2><div class="prg-products-grid">${related.map(productCardHTML).join('')}</div></section>` : ''}
+   790→    </div>
+   791→    <div class="prg-product-mobile-bar" id="prg-product-mobile-bar">
+   792→      <div class="prg-product-mobile-bar-price">${formatPrice(p.price)}</div>
+   793→      <button type="button" class="prg-btn prg-btn--primary" id="prg-mobile-add">Add to Cart</button>
+   794→    </div>`;
+   795→
+   796→  document.getElementById('prg-qty-minus')?.addEventListener('click', () => {
+   797→    const input = document.getElementById('prg-detail-qty');
+   798→    if (input) input.value = Math.max(1, (parseInt(input.value) || 1) - 1);
+   799→  });
+   800→  document.getElementById('prg-qty-plus')?.addEventListener('click', () => {
+   801→    const input = document.getElementById('prg-detail-qty');
+   802→    if (input) input.value = Math.min(99, (parseInt(input.value) || 1) + 1);
+   803→  });
+   804→  bindProductAddToCart(p);
+   805→  bindAddToCart();
+   806→}
+   807→
+   808→function initFAQ() {
+   809→  document.querySelectorAll('.prg-faq-toggle').forEach(btn => {
+   810→    btn.addEventListener('click', () => {
+   811→      const item = btn.closest('.prg-faq-item');
+   812→      const was = item.classList.contains('active');
+   813→      document.querySelectorAll('.prg-faq-item').forEach(i => i.classList.remove('active'));
+   814→      if (!was) item.classList.add('active');
+   815→    });
+   816→  });
+   817→}
+   818→
+   819→function initGlobal() {
+   820→  ensureCleanCart();
+   821→
+   822→  const header = document.getElementById('prg-header');
+   823→  const nav = document.getElementById('prg-nav');
+   824→  window.addEventListener('scroll', () => header?.classList.toggle('scrolled', window.scrollY > 10));
+   825→
+   826→  const closeNav = () => nav?.classList.remove('open');
+   827→  document.getElementById('prg-menu-toggle')?.addEventListener('click', () => {
+   828→    nav?.classList.toggle('open');
+   829→  });
+   830→  nav?.querySelectorAll('a').forEach(a => a.addEventListener('click', closeNav));
+   831→  document.addEventListener('click', e => {
+   832→    if (nav?.classList.contains('open') && !e.target.closest('#prg-nav') && !e.target.closest('#prg-menu-toggle')) {
+   833→      closeNav();
+   834→    }
+   835→  });
+   836→
+   837→  document.getElementById('prg-search-toggle')?.addEventListener('click', () => {
+   838→    document.getElementById('prg-search-overlay')?.classList.add('active');
+   839→    document.getElementById('prg-search-input')?.focus();
+   840→  });
+   841→  document.getElementById('prg-search-close')?.addEventListener('click', () => {
+   842→    document.getElementById('prg-search-overlay')?.classList.remove('active');
+   843→  });
+   844→  document.getElementById('prg-search-form')?.addEventListener('submit', e => {
+   845→    e.preventDefault();
+   846→    const q = document.getElementById('prg-search-input')?.value;
+   847→    if (q) window.location.href = `shop.html?q=${encodeURIComponent(q)}`;
+   848→  });
+   849→
+   850→  document.querySelectorAll('.prg-cart-icon').forEach(icon => {
+   851→    icon.addEventListener('click', e => {
+   852→      const page = document.body.dataset.page;
+   853→      if (page === 'cart' || page === 'checkout') return;
+   854→      e.preventDefault();
+   855→      openSideCart();
+   856→    });
+   857→  });
+   858→  document.getElementById('prg-side-cart-close')?.addEventListener('click', closeSideCart);
+   859→  document.getElementById('prg-side-cart-overlay')?.addEventListener('click', closeSideCart);
+   860→  document.getElementById('prg-continue-shopping')?.addEventListener('click', closeSideCart);
+   861→  document.getElementById('prg-checkout-btn')?.addEventListener('click', e => {
+   862→    if (e.currentTarget.classList.contains('prg-btn--disabled') || cartCount() === 0) e.preventDefault();
+   863→  });
+   864→  document.getElementById('prg-view-cart-btn')?.addEventListener('click', e => {
+   865→    if (e.currentTarget.classList.contains('prg-btn--disabled') || cartCount() === 0) e.preventDefault();
+   866→  });
+   867→  document.addEventListener('keydown', e => {
+   868→    if (e.key === 'Escape') closeSideCart();
+   869→  });
+   870→
+   871→  document.getElementById('prg-coupon-form')?.addEventListener('submit', e => {
+   872→    e.preventDefault();
+   873→    applyCoupon(document.getElementById('prg-coupon-input').value);
+   874→  });
+   875→
+   876→  updateCartUI();
+   877→}
+   878→
+   879→document.addEventListener('DOMContentLoaded', () => {
+   880→  initGlobal();
+   881→  initFeatured();
+   882→  initShop();
+   883→  initProductList();
+   884→  renderCartPage();
+   885→  initCheckout();
+   886→  initProductPage();
+   887→  initFAQ();
+   888→});
+   889→

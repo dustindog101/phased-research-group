@@ -1,0 +1,430 @@
+     1→# AGENTS.md — ID Pirate Agent Context
+     2→
+     3→> **Purpose**: Machine-readable context for AI coding assistants. Paste this file into any new AI session to resume work. Read this before touching any file.
+     4→
+     5→---
+     6→
+     7→## CRITICAL RULES (never violate these)
+     8→
+     9→1. **Dark mode only** — Background is always `#09090B`. Never introduce white/light backgrounds.
+    10→2. **Glass cards only** — All card surfaces use `.glass` class. Never use `bg-gray-*`, `bg-zinc-*` for backgrounds.
+    11→3. **API calls only through `lib/apiClient.ts`** — Never call `/api/*` routes or Lambda URLs directly from components/pages.
+    12→4. **localStorage only through `lib/storage.ts`** — Use `getStorageItem` / `setStorageItem` / `removeStorageItem`. Never use `localStorage.*` directly.
+    13→5. **Lambda URLs are server-only** — Never add `NEXT_PUBLIC_` prefix to env vars. Route Handlers proxy all requests.
+    14→6. **Prices display in amber** — Always use `.text-price` class for dollar amounts. Never use other colors for prices.
+    15→7. **Do not break the "Bold Minimal" design** — See design rules below.
+    16→
+    17→---
+    18→
+    19→## Project Identity
+    20→
+    21→- **Name**: ID Pirate
+    22→- **Type**: Novelty ID ordering platform
+    23→- **Stack**: Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS v4
+    24→- **Root path**: `/Users/king/coding/web/idpirate/nextjs-boilerplate`
+    25→- **Dev command**: `npm run dev` (port 3000) — run from owner's terminal (may hit EPERM from AI terminal due to macOS disk permissions)
+    26→- **Deployment**: Vercel
+    27→
+    28→---
+    29→
+    30→## File Map (with line counts)
+    31→
+    32→### Config
+    33→
+    34→
+    35→| File                 | Lines | Notes                               |
+    36→| -------------------- | ----- | ----------------------------------- |
+    37→| `package.json`       | 28    | Dependencies and npm scripts        |
+    38→| `tsconfig.json`      | 28    | Strict TypeScript, `@/`* path alias |
+    39→| `next.config.ts`     | 33    | Security headers                    |
+    40→| `postcss.config.mjs` | 3     | Tailwind PostCSS plugin             |
+    41→
+    42→
+    43→### Lambda sources (`lambda functions/`)
+    44→
+    45→Python Lambda code lives in `**lambda functions/`** at the repo root (folder name includes a space). Deploy these to AWS and point Vercel env vars at the Function URLs.
+    46→
+    47→
+    48→| Folder                           | Role                                                                                                                                                           |
+    49→| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+    50→| `ID-Pirate-CreateOrder-Function` | `ORDER_LAMBDA_URL` — create order                                                                                                                              |
+    51→| `idPirateOrderLookup`            | `LOOKUP_LAMBDA_URL` — track, discounts, crypto payment intents, `list_user_orders`, `validate_reseller`, etc.                                                    |
+    52→| `admin_handler`                  | `ADMIN_LAMBDA_URL` — admin CRUD; Payments hub APIs (`get_payment_activity_summary`, `list_payment_intents`); keep `**admin_update_order`** for the admin UI   |
+    53→| `payment_watcher`                | EventBridge `rate(2 minutes)` — polls blockchains, marks orders paid (not a Function URL)                                                                      |
+    54→| `shared/product_catalog.py`        | Product IDs, per-variant list prices — **keep in sync with `lib/productCatalog.ts`**                                                                         |
+    55→| `shared/order_pricing.py`          | Server-side order totals (volume/wholesale tiers) — zip with **Create Order** and other handlers that bundle `shared/`                                         |
+    56→| `payment_shared/`                  | Crypto gateway — `admin_activity.py` (Activity ledger APIs), handlers, settings; zip with LOOKUP, admin_handler, payment_watcher when enabling payments        |
+    57→| `reseller_handler`               | `RESELLER_LAMBDA_URL` — reseller-only: list/get/update orders; **PyJWT** via layer or zip (`scripts/build-pyjwt-lambda-layer.sh` for 3.13+3.14 — see SETUP.md) |
+    58→| `idPirate_auth`                  | `AUTH_LAMBDA_URL`                                                                                                                                              |
+    59→
+    60→
+    61→### Library (`lib/`)
+    62→
+    63→
+    64→| File                                                 | Lines | Purpose                                                                                        |
+    65→| ---------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------- |
+    66→| `apiClient.ts`                                       | ~500  | All API functions — `apiFetch`, `fetchResellerOrders`, `resellerUpdateOrder`, etc.             |
+    67→| `types.ts`                                           | 86    | `JwtPayload`, `IdFormData`, `OrderDetails`, `TrackingStage`, `PaymentMethod`                   |
+    68→| `productCatalog.ts`                                  | —     | ID products (`productId`), variants (standard/premium/CDL/intl), list prices — **sync with `shared/product_catalog.py`** |
+    69→| `constants.ts`                                       | 86    | Dropdown options, `handlingFee`, `shippingFee`; re-exports legacy `stateOptions` / `statePrices` from catalog              |
+    70→| `pricing.ts`                                         | —     | Volume discounts, wholesale tiers — **sync tier logic with `shared/order_pricing.py`**                                     |
+    71→| `paymentConstants.ts` / `paymentTypes.ts`            | —     | Crypto asset metadata, payment intent types                                                    |
+    72→| `lib/payments/`                                      | —     | Crypto client API — `api.ts`, `rails.ts`, `originLabel.ts`, `intentStatus.ts`; import from `@/lib/payments` |
+    73→| `storage.ts`                                         | 46    | SSR-safe localStorage: `getStorageItem`, `setStorageItem`, `removeStorageItem`                 |
+    74→| `localStorage-polyfill.ts`                           | ~30   | Polyfill imported first in `layout.tsx` to fix Next.js dev mode bug                            |
+    75→| `validateReseller.ts`                                | —     | Reseller upload session: LOOKUP validation + dev slug allowlist (`RESELLER_UPLOAD_DEV_SLUGS`)  |
+    76→| `r2.ts` / `imagePrepare.ts` / `uploadUserMessage.ts` | —     | R2 presign helpers, image pipeline, upload error copy                                          |
+    77→
+    78→
+    79→### Pages (`app/`)
+    80→
+    81→
+    82→| Route             | File                      | Lines | Auth Guard         | Notes                                                                        |
+    83→| ----------------- | ------------------------- | ----- | ------------------ | ---------------------------------------------------------------------------- |
+    84→| `/`               | `page.tsx`                | 219   | None               | Hero, feature grid, state cards, FAQ accordion                               |
+    85→| `/account`        | `account/page.tsx`        | 199   | None               | Login/Register tabbed form                                                   |
+    86→| `/order`          | `order/page.tsx`          | 93    | None               | State ID gallery grid                                                        |
+    87→| `/order/new`      | `order/new/page.tsx`      | 407   | `withAuth`         | Multi-ID form, sidebar, mobile nav, completion dots                          |
+    88→| `/checkout`       | `checkout/page.tsx`       | 289   | `withAuth`         | Order review, shipping, payment (Crypto sub-picker or manual), submit          |
+    89→| `/checkout/pay/[orderId]` | `checkout/pay/[orderId]/page.tsx` | — | `withAuth` | Crypto invoice: exact amount, QR, poll status, cancel/switch                 |
+    90→| `/dashboard`      | `dashboard/page.tsx`      | 180   | `withAuth`         | Stat cards, order list                                                       |
+    91→| `/orders`         | `orders/page.tsx`         | —     | `withAuth`         | All orders list                                                              |
+    92→| `/track`          | `track/page.tsx`          | ~143  | None               | Order search, auto-fill from URL params                                      |
+    93→| `/news`           | `news/page.tsx`           | 82    | None               | News feed                                                                    |
+    94→| `/terms`          | `terms/page.tsx`          | ~85   | None               | Simple text page                                                             |
+    95→| `/privacy`        | `privacy/page.tsx`        | ~85   | None               | Simple text page                                                             |
+    96→| `/admin`          | `admin/page.tsx`          | 49    | `withAdminAuth`    | Metrics, orders, **Payments** hub (Activity + Gateways)                      |
+    97→| `/reseller`       | `reseller/page.tsx`       | —     | `withResellerAuth` | Reseller dashboard (orders, link, analytics)                                 |
+    98→| `/invoices`       | `invoices/page.tsx`       | —     | —                  | Stub — purpose TBD                                                           |
+    99→| `/za`             | `za/page.tsx`             | —     | —                  | Stub — purpose TBD                                                           |
+   100→| `/r/[resellerId]` | `r/[resellerId]/page.tsx` | —     | None (public)      | White-label checkout (subdomain → middleware rewrite); light/dark appearance |
+   101→
+   102→
+   103→### API Route Handlers (`app/api/`)
+   104→
+   105→
+   106→| Route                                | File                                 | Proxies To                                                       |
+   107→| ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------- |
+   108→| `POST /api/auth`                     | `auth/route.ts`                      | `AUTH_LAMBDA_URL`                                                |
+   109→| `GET /api/orders`                    | `orders/route.ts`                    | `LOOKUP_LAMBDA_URL` (`list_user_orders`)                         |
+   110→| `POST /api/orders`                   | `orders/route.ts`                    | `ORDER_LAMBDA_URL` (create order)                                |
+   111→| `GET /api/reseller/orders`           | `reseller/orders/route.ts`           | `RESELLER_LAMBDA_URL` (`list_reseller_orders`)                   |
+   112→| `GET /api/reseller/orders/[id]`      | `reseller/orders/[orderId]/route.ts` | `RESELLER_LAMBDA_URL` (`get_reseller_order`)                     |
+   113→| `POST /api/reseller/update-order`    | `reseller/update-order/route.ts`     | `RESELLER_LAMBDA_URL` (`update_reseller_order`)                  |
+   114→| `POST /api/orders/track`             | `orders/track/route.ts`              | `LOOKUP_LAMBDA_URL` (also `list_crypto_methods`, `create_payment_intent`, `get_payment_intent`, `cancel_payment_intent`; `payToken` for guests) |
+   115→| `POST /api/payments/pay-session`     | `payments/pay-session/route.ts`      | Mints HMAC pay token for guest/white-label crypto (`PAY_TOKEN_SECRET`) |
+   116→| `POST /api/reseller/payment-intent`  | `reseller/payment-intent/route.ts`   | `RESELLER_LAMBDA_URL` (`get_reseller_payment_intent`) |
+   117→| `POST /api/admin`                    | `admin/route.ts`                     | `ADMIN_LAMBDA_URL` (incl. `get_payment_activity_summary`, `list_payment_intents`) |
+   118→| `POST /api/uploads/presign`          | `uploads/presign/route.ts`           | Presigned PUT to R2 (user JWT or reseller session token)         |
+   119→| `POST /api/uploads/reseller-session` | `uploads/reseller-session/route.ts`  | Mints reseller upload token (`LOOKUP_LAMBDA` validates reseller) |
+   120→| `POST /api/uploads/presign-get`      | `uploads/presign-get/route.ts`       | Admin-only presigned GET for R2 keys                             |
+   121→| `POST /api/uploads/presign-get-own`  | `uploads/presign-get-own/route.ts`   | User: presigned GET for own order assets                         |
+   122→| `POST /api/uploads/delete`           | `uploads/delete/route.ts`            | Delete R2 object (auth + key ownership rules)                    |
+   123→
+   124→
+   125→### Admin (`app/admin/components/`)
+   126→
+   127→| File | Purpose |
+   128→| ---- | ------- |
+   129→| `PaymentsHubSection.tsx` | Payments sidebar section — Activity \| Gateways tabs |
+   130→| `PaymentActivitySection.tsx` | Invoice ledger, summary cards, filters, detail drawer |
+   131→| `PaymentGatewaysSection.tsx` | Crypto deposit addresses + future rail placeholders |
+   132→| `PaymentSettingsSection.tsx` | Legacy — superseded by Payments hub (Gateways tab) |
+   133→
+   134→Admin sidebar label: **Payments** (not crypto-settings-only).
+   135→
+   136→### Components (`app/components/`)
+   137→
+   138→
+   139→| File                   | Lines | Purpose                                                     |
+   140→| ---------------------- | ----- | ----------------------------------------------------------- |
+   141→| `UniversalHeader.tsx`  | 249   | Sticky header, desktop nav, user dropdown, mobile slide-out |
+   142→| `withAuth.tsx`         | 29    | HOC: redirects unauthenticated users to `/account`          |
+   143→| `withAdminAuth.tsx`    | 33    | HOC: redirects non-admins to `/dashboard`                   |
+   144→| `withResellerAuth.tsx` | —     | HOC: `/reseller` — requires `isReseller` or admin           |
+   145→| `icons/index.tsx`      | 199   | 20+ custom SVG icon components                              |
+   146→| `ui/Footer.tsx`        | 36    | Site footer with nav links                                  |
+   147→| `ui/Spinner.tsx`       | ~40   | Loading spinner (sm/md/lg) + `FullPageSpinner`              |
+   148→| `ui/FormInput.tsx`     | ~40   | Labeled text input (requires `label` prop)                  |
+   149→| `ui/FormSelect.tsx`    | ~50   | Labeled select dropdown                                     |
+   150→| `ui/FileInput.tsx`     | ~45   | File upload input                                           |
+   151→| `ui/UploadSlot.tsx`    | —     | R2 upload UI: progress, retry, Bold Minimal                 |
+   152→| `ui/Notification.tsx`  | ~80   | Toast notification with auto-dismiss                        |
+   153→| `ui/index.tsx`         | ~10   | Barrel exports for `ui/`                                    |
+   154→
+   155→
+   156→### Contexts & Hooks
+   157→
+   158→
+   159→| File                           | Purpose                                                              |
+   160→| ------------------------------ | -------------------------------------------------------------------- |
+   161→| `app/contexts/AuthContext.tsx` | JWT decode, `login()`, `logout()`, token in localStorage             |
+   162→| `app/hooks/useAuth.ts`         | Convenience hook wrapping `AuthContext`                              |
+   163→| `app/hooks/useOrder.ts`        | Order detail state — currently uses **mock data** (not wired to API) |
+   164→
+   165→
+   166→---
+   167→
+   168→## Design System — "Bold Minimal"
+   169→
+   170→### CSS Variables (defined in `app/globals.css`)
+   171→
+   172→```css
+   173→--bg:             #09090B
+   174→--surface:        rgba(255,255,255,0.04)
+   175→--surface-hover:  rgba(255,255,255,0.07)
+   176→--border:         rgba(255,255,255,0.08)
+   177→--border-hover:   rgba(255,255,255,0.16)
+   178→--accent:         #6366F1   /* indigo */
+   179→--accent-hover:   #818CF8
+   180→--accent-subtle:  rgba(99,102,241,0.15)
+   181→--price:          #F59E0B   /* amber — always for prices */
+   182→--success:        #10B981
+   183→--error:          #EF4444
+   184→--info:           #3B82F6
+   185→--text-primary:   #FAFAFA
+   186→--text-secondary: #A1A1AA   /* zinc-400 */
+   187→--text-tertiary:  #71717A   /* zinc-500 */
+   188→--font-pirate:    'Pirata One', cursive
+   189→--font-sans:      'Inter', system-ui
+   190→--radius-lg:      1rem
+   191→--radius-xl:      1.25rem
+   192→```
+   193→
+   194→### Utility Classes
+   195→
+   196→
+   197→| Class                   | What it does                                                                                       |
+   198→| ----------------------- | -------------------------------------------------------------------------------------------------- |
+   199→| `.glass`                | Card surface: `var(--surface)` bg + `blur(24px)` + `var(--border)` 1px border + `var(--radius-xl)` |
+   200→| `.glass-hover`          | Hover lift: border lighten + shadow + scale                                                        |
+   201→| `.btn`                  | Base button: inline-flex, font-600, 0.875rem, focus ring                                           |
+   202→| `.btn-primary`          | Indigo fill                                                                                        |
+   203→| `.btn-outline`          | Transparent + border                                                                               |
+   204→| `.text-price`           | Amber, bold, tabular-nums                                                                          |
+   205→| `.text-label`           | 0.75rem, uppercase, letter-spaced, `var(--text-tertiary)`                                          |
+   206→| `.animate-fade-up`      | `translateY(16px)→0` entrance                                                                      |
+   207→| `.animate-fade-in`      | `scale(0.97)→1` entrance                                                                           |
+   208→| `.delay-1` – `.delay-6` | 75ms stagger increments                                                                            |
+   209→
+   210→
+   211→### State Patterns
+   212→
+   213→```tsx
+   214→// Selected/active
+   215→className="bg-indigo-500/10 border-indigo-500/20"
+   216→
+   217→// Error
+   218→className="bg-red-500/10 border-red-500/20 text-red-400"
+   219→
+   220→// Success
+   221→className="bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+   222→```
+   223→
+   224→---
+   225→
+   226→## Code Patterns
+   227→
+   228→### Page Layout
+   229→
+   230→```tsx
+   231→<div className="min-h-screen flex flex-col">
+   232→  <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex-grow">
+   233→    {/* content */}
+   234→  </div>
+   235→  <Footer />
+   236→</div>
+   237→```
+   238→
+   239→Max-widths: `max-w-3xl` text pages · `max-w-6xl` dashboards · `max-w-7xl` galleries
+   240→
+   241→### Page Header
+   242→
+   243→```tsx
+   244→<header className="mb-10 sm:mb-12">
+   245→  <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight animate-fade-up">
+   246→    Title
+   247→  </h1>
+   248→  <p className="mt-3 text-sm text-zinc-400 animate-fade-up delay-1">
+   249→    Subtitle
+   250→  </p>
+   251→</header>
+   252→```
+   253→
+   254→### Form Input
+   255→
+   256→```
+   257→w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3
+   258→text-white placeholder-zinc-500 focus:ring-2 focus:ring-indigo-500/40
+   259→focus:border-indigo-500/60 focus:outline-none transition text-sm
+   260→```
+   261→
+   262→### Auth Guard HOC Usage
+   263→
+   264→```tsx
+   265→// User-only pages
+   266→export default withAuth(MyPage);
+   267→
+   268→// Admin-only pages
+   269→export default withAdminAuth(AdminPage);
+   270→
+   271→// Reseller dashboard (`isReseller` or admin)
+   272→export default withResellerAuth(ResellerPage);
+   273→```
+   274→
+   275→### API Call Pattern
+   276→
+   277→```tsx
+   278→import { someApiFunction } from '@/lib/apiClient';
+   279→import { getStorageItem } from '@/lib/storage';
+   280→
+   281→const token = getStorageItem('idPirateAuthToken');
+   282→const result = await someApiFunction(token, payload);
+   283→```
+   284→
+   285→---
+   286→
+   287→## Authentication
+   288→
+   289→- JWT stored at localStorage key: `idPirateAuthToken`
+   290→- Decoded client-side with `atob()` (no jwt library)
+   291→- JWT payload shape: `{ userId, username, role: 'user'|'admin', isReseller: boolean, exp, iat }`
+   292→- **TTL:** customers/resellers **1h** (`JWT_TTL_HOURS` on auth Lambda); **admins 8h** (`ADMIN_JWT_TTL_HOURS`). No refresh — re-login after `exp`.
+   293→- `AuthContext` exposes: `user`, `token`, `login(token)`, `logout()`
+   294→
+   295→---
+   296→
+   297→## Pricing and product catalog
+   298→
+   299→**Product list prices** (per `productId`, e.g. `CA:DMV_POLY`, `PA:STANDARD`) live in:
+   300→
+   301→- **Frontend:** `lib/productCatalog.ts`
+   302→- **Lambda:** `lambda functions/shared/product_catalog.py`
+   303→
+   304→> When adding a state, variant (premium/CDL/international), or changing a list price, **update both files** before deploying. Orders store `productId` on each ID line; the server resolves price from the Python catalog.
+   305→
+   306→**Fees and volume tiers:**
+   307→
+   308→```ts
+   309→// lib/constants.ts
+   310→handlingFee = 5
+   311→shippingFee = 15
+   312→defaultIdPrice = 95  // fallback only; prefer productCatalog
+   313→
+   314→// lib/pricing.ts — retail volume −$10 (2–3 IDs) / −$20 (4+); reseller wholesale tiers
+   315→```
+   316→
+   317→> Use `getProductListPrice(productId)` / `lib/pricing.ts` in the app. Do not hardcode prices in components.
+   318→
+   319→---
+   320→
+   321→## Environment Variables
+   322→
+   323→```env
+   324→# Server-only (.env.local / Vercel env vars — NO NEXT_PUBLIC_ prefix)
+   325→AUTH_LAMBDA_URL=
+   326→LOOKUP_LAMBDA_URL=
+   327→ORDER_LAMBDA_URL=
+   328→ADMIN_LAMBDA_URL=
+   329→RESELLER_LAMBDA_URL=
+   330→# Cloudflare R2 (presigned uploads)
+   331→R2_ACCOUNT_ID=
+   332→R2_BUCKET_NAME=
+   333→R2_ENDPOINT=
+   334→R2_ACCESS_KEY_ID=
+   335→R2_SECRET_ACCESS_KEY=
+   336→R2_UPLOAD_TOKEN_SECRET=
+   337→# Guest crypto pay tokens (same value on LOOKUP Lambda)
+   338→PAY_TOKEN_SECRET=
+   339→# Local dev: comma-separated slugs allowed for reseller upload when LOOKUP does not know them (development only)
+   340→# RESELLER_UPLOAD_DEV_SLUGS=manny
+   341→
+   342→# Crypto payment gateway — AWS Lambda env only (see integration/dynamodb/PAYMENT_GATEWAY.md)
+   343→# LOOKUP: COINGECKO_API_KEY= (optional)
+   344→# payment_watcher: ETHERSCAN_API_KEY=, SOLANA_RPC_URL= (optional), HELIUS_API_KEY= (optional)
+   345→```
+   346→
+   347→---
+   348→
+   349→## Cost, free tier, and scale (owner intent)
+   350→
+   351→The project aims to **stay within free tiers** of the services in use (e.g. **Vercel** hosting, **AWS** Lambda/DynamoDB where applicable, **Cloudflare R2** storage) **when possible**, and to **avoid patterns that explode cost** as usage grows.
+   352→
+   353→**When writing or reviewing code, keep in mind:**
+   354→
+   355→- **Today and tomorrow:** Prefer designs that stay efficient at **low volume** *and* remain reasonable if **customers, orders, uploads, or API traffic grow** (avoid unnecessary full-table scans, unbounded polling, chatty N+1 Lambdas, huge payloads, or features that require expensive tiers by default).
+   356→- **Backend:** Favor **keys and queries** that match DynamoDB access patterns; add **pagination** before large lists become hot paths; be cautious with **scan**-heavy admin metrics at scale.
+   357→- **Uploads / R2:** Lifecycle and prefix rules (see `integration/r2/R2-LIFECYCLE.md`) support controlling storage growth; CORS and presign patterns should stay lean.
+   358→- **New dependencies or services:** Consider **free-tier limits and billing surprises** before adding third-party APIs, heavy image processing on serverless, or always-on workers.
+   359→
+   360→This is a **product constraint**, not a ban on ever paying for scale—when growth demands it, the owner may upgrade plans deliberately. Agents should **default to frugal, scalable patterns** unless the owner specifies otherwise.
+   361→
+   362→---
+   363→
+   364→## Middleware and multi-host behavior
+   365→
+   366→- `**/api` and `/api/*`** are **never** rewritten by `middleware.ts` — API routes always hit `app/api/`** on the same host (fixes JSON/HTML mix-ups on reseller subdomains).
+   367→- **Reseller subdomains** (hosts not in the main-domain list) rewrite to `**/r/[subdomain]/...`** and set header `**x-idpirate-reseller-host`** for layout/header hiding.
+   368→- **White-label orders** store `**userId` = subdomain slug** and optional `**resellerId`**; the reseller dashboard uses `**fetchResellerOrders`** → `**RESELLER_LAMBDA_URL**`, not `GET /api/orders`.
+   369→- **R2 browser uploads** require bucket **CORS** to include the **exact** page origin (e.g. `http://manny.localhost:3000`). See `integration/r2/R2-LIFECYCLE.md`.
+   370→
+   371→---
+   372→
+   373→## Known Technical Debt
+   374→
+   375→
+   376→| #   | Issue                                                                                                | Location                                             |
+   377→| --- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+   378→| 1   | `useOrder` hook uses hardcoded mock data                                                             | `app/hooks/useOrder.ts`                              |
+   379→| 2   | `/order/view` uses mock data, not real API                                                           | `app/order/view/page.tsx`                            |
+   380→| 3   | `submitOrder` sends client `id` field to backend                                                     | `lib/apiClient.ts` + `app/order/new/page.tsx`        |
+   381→| 4   | Direct `localStorage.setItem` in order form                                                          | `app/order/new/page.tsx` → `handleProceedToCheckout` |
+   382→| 5   | `/za` and `/invoices` pages are undocumented stubs                                                   | `app/za/`, `app/invoices/`                           |
+   383→| 6   | No test coverage                                                                                     | entire project                                       |
+   384→| 7   | `ARCHITECTURE.md` / `PROJECT_CONTEXT.md` may lag AGENTS; treat **AGENTS.md** as canonical for agents | docs                                                 |
+   385→| 8   | Reseller metrics/analytics UI may not match live order fields until aligned                          | `app/reseller/components/AnalyticsSection.tsx`       |
+   386→
+   387→
+   388→---
+   389→
+   390→## Owner Preferences
+   391→
+   392→
+   393→| Preference   | Detail                                                                       |
+   394→| ------------ | ---------------------------------------------------------------------------- |
+   395→| Design       | "Bold Minimal" dark glassmorphic — no light themes, ever                     |
+   396→| Legal pages  | Plain headings + paragraphs. No cards, tags, or grid layouts                 |
+   397→| Complexity   | Clean functional code over over-engineered solutions                         |
+   398→| Animations   | `animate-fade-up` with stagger — subtle, not flashy                          |
+   399→| Icons        | Use `app/components/icons/index.tsx` first; `lucide-react` only in admin     |
+   400→| Errors       | Toast via `Notification` component — no `alert()` calls                      |
+   401→| Navigation   | Use Next.js `useRouter` — no direct `window.location` assignments            |
+   402→| Cost / scale | Prefer free-tier–friendly patterns; see **Cost, free tier, and scale** above |
+   403→
+   404→
+   405→---
+   406→
+   407→## Quick Checklist for New Features
+   408→
+   409→- Uses `.glass` for card surfaces
+   410→- Uses design tokens from `app/globals.css` (no hardcoded hex except via tokens)
+   411→- API calls go through `lib/apiClient.ts`
+   412→- localStorage access goes through `lib/storage.ts`
+   413→- Prices displayed with `.text-price`
+   414→- Page sections have `animate-fade-up` + stagger `delay-*`
+   415→- Responsive: `sm:` and `lg:` breakpoints
+   416→- No `alert()` — uses `Notification` component
+   417→- No `NEXT_PUBLIC_` on Lambda URL env vars
+   418→- New features: consider **Cost, free tier, and scale** (pagination, avoid scans, bounded payloads)
+   419→
+   420→---
+   421→
+   422→## Deploy and backend checklist (human or agent)
+   423→
+   424→- **Lambda source (local only):** Handlers live in `lambda functions/` — **gitignored, not on GitHub**. See [integration/LAMBDA_WORKFLOW.md](./integration/LAMBDA_WORKFLOW.md) for edit → build → deploy steps and optional nested `git init` inside that folder.
+   425→- **Product catalog sync:** `lib/productCatalog.ts` and `lambda functions/shared/product_catalog.py` must be updated together when changing products or list prices; then rebuild zips and redeploy Lambdas.
+   426→- **Vercel:** Set all Lambda Function URLs + `**RESELLER_LAMBDA_URL`** after deploying `lambda functions/reseller_handler` (same `**JWT_SECRET`** and DynamoDB access as other handlers).
+   427→- **Admin vs reseller:** Admin order tools use `**POST /api/admin`**; reseller dashboard uses `**/api/reseller/*`** only.
+   428→- **Crypto payments:** Create DynamoDB tables `idPirate_settings`, `idPirate_payment_intents` (see `integration/dynamodb/PAYMENT_GATEWAY.md`). Deploy `payment_watcher` with EventBridge `rate(2 minutes)`. Zip `payment_shared/` with LOOKUP, Create Order, admin_handler, and payment_watcher.
+   429→
+   430→
