@@ -5,6 +5,9 @@ import { Providers } from "@/components/providers";
 import { Header } from "@/components/store/header";
 import { Footer } from "@/components/store/footer";
 
+// Force all pages to be dynamically rendered (database-backed app, no static prerendering)
+export const dynamic = "force-dynamic";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
