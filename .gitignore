@@ -62,3 +62,6 @@ server.log
 /Caddyfile
 db/custom.db
 *.db
+prisma/schema.dev.prisma
+scripts/vercel-secrets.env
+*.env
