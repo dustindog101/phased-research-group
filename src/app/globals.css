@@ -1,0 +1,291 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Phased Research Group — Design System
+  Ported from static site css/main.css
+  Clinical lab-research aesthetic: deep navy + teal accents, Inter body + Oswald display
+*/
+
+@theme inline {
+  --color-background: var(--prg-bg);
+  --color-foreground: var(--prg-text);
+  --color-card: var(--prg-card, #ffffff);
+  --color-card-foreground: var(--prg-text);
+  --color-popover: #ffffff;
+  --color-popover-foreground: var(--prg-text);
+  --color-primary: var(--prg-accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--prg-bg-elevated);
+  --color-secondary-foreground: var(--prg-text);
+  --color-muted: var(--prg-bg-alt);
+  --color-muted-foreground: var(--prg-text-muted);
+  --color-accent: var(--prg-bg-elevated);
+  --color-accent-foreground: var(--prg-accent);
+  --color-destructive: var(--prg-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--prg-border);
+  --color-input: var(--prg-border);
+  --color-ring: var(--prg-accent);
+  --color-teal: var(--prg-teal);
+  --color-success: var(--prg-success);
+  --color-warning: var(--prg-warning);
+  --color-chart-1: var(--prg-accent);
+  --color-chart-2: var(--prg-teal);
+  --color-chart-3: var(--prg-success);
+  --color-chart-4: var(--prg-warning);
+  --color-chart-5: var(--prg-danger);
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: var(--prg-text);
+  --color-sidebar-primary: var(--prg-accent);
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: var(--prg-bg-alt);
+  --color-sidebar-accent-foreground: var(--prg-accent);
+  --color-sidebar-border: var(--prg-border);
+  --color-sidebar-ring: var(--prg-accent);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Oswald', sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --radius-sm: 6px;
+  --radius-md: var(--prg-radius);
+  --radius-lg: var(--prg-radius-lg);
+  --radius-xl: 18px;
+}
+
+:root {
+  --prg-bg: #ffffff;
+  --prg-bg-alt: #f8fafc;
+  --prg-bg-elevated: #f1f5f9;
+  --prg-border: #e2e8f0;
+  --prg-border-hover: #cbd5e1;
+  --prg-text: #0f172a;
+  --prg-text-secondary: #334155;
+  --prg-text-muted: #64748b;
+  --prg-accent: #1e3a5f;
+  --prg-accent-hover: #2d4a73;
+  --prg-accent-light: #3b82f6;
+  --prg-teal: #0d9488;
+  --prg-success: #16a34a;
+  --prg-warning: #d97706;
+  --prg-danger: #dc2626;
+  --prg-radius: 8px;
+  --prg-radius-lg: 14px;
+  --prg-shadow-sm: 0 1px 3px rgba(15,23,42,0.04);
+  --prg-shadow: 0 4px 20px rgba(15,23,42,0.06);
+  --prg-shadow-lg: 0 12px 40px rgba(15,23,42,0.08);
+  --prg-transition: 0.25s ease;
+  --prg-container: 1280px;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --prg-bg: #0f172a;
+  --prg-bg-alt: #1e293b;
+  --prg-bg-elevated: #334155;
+  --prg-border: #334155;
+  --prg-border-hover: #475569;
+  --prg-text: #f1f5f9;
+  --prg-text-secondary: #cbd5e1;
+  --prg-text-muted: #94a3b8;
+  --prg-accent: #3b82f6;
+  --prg-accent-hover: #60a5fa;
+  --prg-accent-light: #60a5fa;
+  --prg-teal: #14b8a6;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  ::selection {
+    background: var(--prg-accent);
+    color: #fff;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+/* ============ PRG Component Utilities ============ */
+
+@layer components {
+  .prg-container {
+    max-width: var(--prg-container);
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Eyebrow / Badge */
+  .prg-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--prg-teal);
+    display: inline-block;
+  }
+
+  .prg-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    background: rgba(30,58,95,0.06);
+    border: 1px solid rgba(30,58,95,0.12);
+    color: var(--prg-accent);
+  }
+
+  .prg-badge--teal {
+    background: rgba(13,148,136,0.08);
+    border-color: rgba(13,148,136,0.2);
+    color: var(--prg-teal);
+  }
+
+  .prg-badge--success {
+    background: rgba(22,163,74,0.08);
+    border-color: rgba(22,163,74,0.2);
+    color: var(--prg-success);
+  }
+
+  .prg-badge--danger {
+    background: rgba(220,38,38,0.08);
+    border-color: rgba(220,38,38,0.2);
+    color: var(--prg-danger);
+  }
+
+  /* Display heading */
+  .prg-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  /* Section */
+  .prg-section {
+    padding: 80px 0;
+  }
+  .prg-section--alt {
+    background: var(--prg-bg-alt);
+  }
+  .prg-section-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .prg-section-title {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin: 14px 0 12px;
+  }
+  .prg-section-subtitle {
+    color: var(--prg-text-muted);
+    font-size: 15px;
+  }
+
+  /* Trust row */
+  .prg-trust-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    padding: 48px 0;
+    border-top: 1px solid var(--prg-border);
+  }
+  .prg-trust-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .prg-trust-item svg {
+    flex-shrink: 0;
+    color: var(--prg-accent);
+    margin-top: 2px;
+  }
+  .prg-trust-item strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .prg-trust-item span {
+    font-size: 12px;
+    color: var(--prg-text-muted);
+  }
+
+  /* Hero gradient */
+  .prg-hero-gradient {
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 45%, #1e40af 100%);
+  }
+  .prg-page-hero-gradient {
+    background: linear-gradient(135deg, var(--prg-bg-alt) 0%, #ffffff 100%);
+  }
+
+  /* Card hover */
+  .prg-card-hover {
+    transition: all var(--prg-transition);
+  }
+  .prg-card-hover:hover {
+    border-color: var(--prg-border-hover);
+    transform: translateY(-4px);
+    box-shadow: var(--prg-shadow-lg);
+  }
+
+  /* Footer dark */
+  .prg-footer-dark {
+    background: #0f172a;
+    color: rgba(255,255,255,0.65);
+  }
+  .prg-footer-dark a {
+    color: rgba(255,255,255,0.65);
+    transition: color var(--prg-transition);
+  }
+  .prg-footer-dark a:hover {
+    color: #fff;
+  }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .prg-trust-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .prg-trust-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Scrollbar styling for long lists */
+.prg-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.prg-scroll::-webkit-scrollbar-track {
+  background: var(--prg-bg-alt);
+}
+.prg-scroll::-webkit-scrollbar-thumb {
+  background: var(--prg-border-hover);
+  border-radius: 3px;
+}
+.prg-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--prg-text-muted);
+}

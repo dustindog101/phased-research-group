@@ -1,0 +1,297 @@
+// Prisma schema for Phased Research Group
+// Production: Neon Postgres (serverless, free tier 0.5GB)
+// Local dev: SQLite (set DATABASE_URL="file:./dev.db")
+//
+// To switch providers:
+//   - Dev (SQLite):     set provider = "sqlite"     + DATABASE_URL="file:./dev.db"
+//   - Prod (Postgres):  set provider = "postgresql" + DATABASE_URL="postgres://..."
+// Note: SQLite doesn't support enums natively — Prisma maps them to strings.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USERS & AUTH ============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String
+  name          String?
+  role          String    @default("USER") // USER | ADMIN
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  orders        Order[]
+  addresses     Address[]
+  cart          Cart?
+  sessions      Session[]
+  accounts      Account[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============ PRODUCTS ============
+
+model Product {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  displayName  String
+  category     String   // metabolic | healing | hormone | longevity | neuro | other
+  categoryLabel String
+  dosage       String
+  sku          String   @unique
+  price        Float    // per-vial consumer price
+  kitPrice     Float    // 5-vial kit price
+  capColor     String   @default("#0d9488")
+  featured     Boolean  @default(false)
+  inStock      Boolean  @default(true)
+  stockQty     Int      @default(0)
+  description  String?
+  longDescription String? // markdown
+  coaUrl       String?
+  imageKey     String?   // Vercel Blob key
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orderItems   OrderItem[]
+  cartItems    CartItem[]
+
+  @@index([category])
+  @@index([featured])
+  @@index([inStock])
+}
+
+// ============ CART ============
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int      @default(1)
+  isKit     Boolean  @default(false) // true = 5-vial kit, false = single vial
+  createdAt DateTime @default(now())
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId, isKit])
+  @@index([cartId])
+}
+
+// ============ ORDERS ============
+
+model Order {
+  id               String         @id @default(cuid())
+  orderNumber      String         @unique // PRG-XXXXXX human-readable
+  userId           String?
+  guestEmail       String?        // for guest checkout
+  status           String         @default("PENDING") // PENDING|PAID|PROCESSING|SHIPPED|DELIVERED|CANCELLED|REFUNDED
+  paymentStatus    String         @default("UNPAID") // UNPAID|PENDING|PAID|PARTIAL|REFUNDED
+  paymentMethod    String?        // "Crypto: Bitcoin" | "crypto:btc" | etc.
+  paymentIntentId  String?
+  cryptoAsset      String?        // CryptoAssetId when paid via crypto
+  cryptoTxHash     String?
+  paymentExpiresAt DateTime?
+
+  // Pricing snapshot (USD)
+  subtotal         Float
+  discountAmount   Float          @default(0)
+  shipping         Float          @default(0)
+  total            Float
+  currency         String         @default("USD")
+  couponCode       String?
+
+  // Shipping address snapshot
+  shippingAddress  Json?
+  shippingMethod   String?        // "ground" | "express"
+
+  // Admin fields
+  customerNotice   String?
+  adminNotes       String?
+  trackingNumber   String?
+
+  // Metadata
+  source           String         @default("web") // "web" | "admin"
+  ruoAccepted      Boolean        @default(false)
+  ageConfirmed     Boolean        @default(false)
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user             User?          @relation(fields: [userId], references: [id])
+  items            OrderItem[]
+  paymentIntent    PaymentIntent?
+
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([guestEmail])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  name      String   // snapshot of product name
+  dosage    String   // snapshot
+  sku       String   // snapshot
+  price     Float    // snapshot of unit price
+  quantity  Int
+  isKit     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+// ============ ADDRESSES ============
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  fullName  String
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  zip       String
+  country   String   @default("US")
+  phone     String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============ COUPONS ============
+
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  discountType  String   // PERCENT | FIXED
+  value         Float    // percentage (0-100) or fixed amount
+  minOrder      Float    @default(0)
+  maxUses       Int?     // null = unlimited
+  usedCount     Int      @default(0)
+  isActive      Boolean  @default(true)
+  startsAt      DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// ============ CRYPTO PAYMENT GATEWAY ============
+
+model PaymentIntent {
+  id              String              @id @default(cuid())
+  orderId         String              @unique
+  userId          String?
+  asset           String              // CryptoAssetId: btc | ltc | sol | usdc_ethereum | ...
+  depositAddress  String
+  expectedAmount  String              // human-readable, e.g. "0.00123456"
+  expectedAtomic  String              // integer string for exact on-chain match
+  uniqueSuffix    Int                 // ties on-chain amount to this order
+  baseTotalUsd    Float
+  exchangeRate    Float?
+  status          String              @default("PENDING") // PENDING|DETECTED|CONFIRMED|EXPIRED|CANCELLED
+  txHash          String?
+  confirmations   Int                 @default(0)
+  expiresAt       DateTime
+  createdAt       DateTime            @default(now())
+  confirmedAt     DateTime?
+  cancelledAt     DateTime?
+
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([asset])
+  @@index([depositAddress])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+// ============ PAYMENT SETTINGS (singleton) ============
+
+model PaymentSettings {
+  id                     String   @id @default("site") // singleton
+  paymentGateways        Json     // Record<CryptoAssetId, {enabled, address, minConfirmations}>
+  paymentIntentTtlHours  Int      @default(48)
+  updatedAt              DateTime @updatedAt
+}
+
+// ============ EMAIL LOG ============
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  to       String
+  subject  String
+  type     String   // "order_confirmation" | "payment_received" | etc.
+  orderId  String?
+  sentAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([to])
+}
