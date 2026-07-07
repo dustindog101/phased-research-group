@@ -10,9 +10,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { requireAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import sharp from "sharp";
 import { put, del } from "@vercel/blob";
+
+/** Check admin auth for API routes — returns null if not admin */
+async function requireAdminApi(): Promise<boolean> {
+  const session = await getSession();
+  return session?.role === "ADMIN";
+}
 
 const SIZES = [
   { name: "thumb", width: 80 },
@@ -26,7 +32,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  await requireAdmin();
+  if (!(await requireAdminApi())) {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
   const { productId } = await params;
 
   try {
@@ -114,7 +122,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  await requireAdmin();
+  if (!(await requireAdminApi())) {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
   const { productId } = await params;
 
   try {
