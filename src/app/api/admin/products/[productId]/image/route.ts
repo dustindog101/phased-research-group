@@ -11,10 +11,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { getSession } from "@/lib/auth";
-import sharp from "sharp";
-import { put, del } from "@vercel/blob";
 
-/** Check admin auth for API routes — returns null if not admin */
+/** Check admin auth for API routes */
 async function requireAdminApi(): Promise<boolean> {
   const session = await getSession();
   return session?.role === "ADMIN";
@@ -38,6 +36,10 @@ export async function POST(
   const { productId } = await params;
 
   try {
+    // Dynamic imports (sharp + blob) — avoids load-time failures
+    const sharp = (await import("sharp")).default;
+    const { put, del } = await import("@vercel/blob");
+
     const product = await db.product.findUnique({ where: { id: productId } });
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -108,9 +110,10 @@ export async function POST(
     return NextResponse.json({
       success: true,
       images: imageUrls,
+      imageKey,
     });
   } catch (e) {
-    console.error("POST /api/admin/products/[productId]/image error:", e);
+    console.error("POST image upload error:", e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to upload image" },
       { status: 500 }
@@ -128,6 +131,7 @@ export async function DELETE(
   const { productId } = await params;
 
   try {
+    const { del } = await import("@vercel/blob");
     const product = await db.product.findUnique({ where: { id: productId } });
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -137,11 +141,10 @@ export async function DELETE(
     if (product.imageKey?.startsWith("blob:")) {
       try {
         const urls = JSON.parse(product.imageKey.replace("blob:", ""));
-        if (Array.isArray(Object.values(urls))) {
-          await Promise.all(
-            Object.values(urls).map((url) => del(url as string).catch(() => {}))
-          );
-        }
+        const urlValues = Object.values(urls);
+        await Promise.all(
+          urlValues.map((url) => del(url as string).catch(() => {}))
+        );
       } catch {
         // skip
       }
