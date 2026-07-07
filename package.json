@@ -83,7 +83,7 @@
     "react-syntax-highlighter": "^15.6.1",
     "recharts": "^3.9.1",
     "resend": "^6.16.0",
-    "sharp": "^0.34.3",
+    "sharp": "^0.35.3",
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",

@@ -8,6 +8,7 @@ import { useCart, KIT_MULTIPLIER } from "@/hooks/useCart";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { CryptoPayModal } from "@/components/payments/crypto-pay-modal";
 import { VialThumb } from "@/components/store/VialSVG";
+import { ProductImage } from "@/components/store/product-image";
 import {
   formatPrice,
   getShippingCost,
@@ -425,8 +426,13 @@ export default function CheckoutPage() {
                     const lineTotal = unitPrice * item.quantity;
                     return (
                       <div key={`${item.productId}-${item.isKit}`} className="flex gap-3">
-                        <div className="shrink-0 w-10 h-10 flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded">
-                          <VialThumb capColor={item.capColor} size={28} />
+                        <div className="shrink-0 w-10 h-10 flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded overflow-hidden">
+                          <ProductImage
+                            slug={item.slug}
+                            capColor={item.capColor}
+                            alt={`${item.displayName} research peptide`}
+                            variant="table"
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold truncate">{item.displayName}</p>

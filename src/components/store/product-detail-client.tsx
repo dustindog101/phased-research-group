@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Minus, Plus, ShoppingCart, Check, ChevronRight, FlaskConical } from "lucide-react";
 import { useCart, KIT_MULTIPLIER } from "@/hooks/useCart";
 import { VialSVG } from "@/components/store/VialSVG";
+import { ProductImage } from "@/components/store/product-image";
 import { formatPrice, DEFAULT_PRODUCT_DESCRIPTION } from "@/lib/constants";
 import type { Product } from "@prisma/client";
 import Link from "next/link";
@@ -70,7 +71,14 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
           {/* Image */}
           <div className="flex flex-col gap-4">
             <div className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-12">
-              <VialSVG capColor={product.capColor} size={280} />
+              <ProductImage
+                slug={product.slug}
+                capColor={product.capColor}
+                alt={`${product.displayName} research peptide vial`}
+                variant="detail"
+                priority
+                className="max-w-full max-h-full object-contain"
+              />
             </div>
             <div className="grid grid-cols-4 gap-3">
               {[product.capColor, "#0d9488", "#1e3a5f", "#2563eb"].map((color, i) => (

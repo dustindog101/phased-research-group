@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "@/hooks/useCart";
 import { VialThumb } from "@/components/store/VialSVG";
+import { ProductImage } from "@/components/store/product-image";
 import { formatPrice, CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 import { Search, Check } from "lucide-react";
@@ -187,7 +188,12 @@ function CategoryGroup({
           <td className="py-3 px-4">
             <div className="flex items-center gap-3">
               <Link href={`/products/${p.slug}`} className="shrink-0">
-                <VialThumb capColor={p.capColor} size={32} />
+                <ProductImage
+                  slug={p.slug}
+                  capColor={p.capColor}
+                  alt={`${p.displayName} research peptide`}
+                  variant="table"
+                />
               </Link>
               <Link href={`/products/${p.slug}`} className="font-medium hover:text-[var(--prg-accent)]">
                 {p.displayName}

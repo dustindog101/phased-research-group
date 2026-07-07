@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
 import { VialSVG } from "./VialSVG";
+import { ProductImage } from "./product-image";
 import { formatPrice, DEFAULT_PRODUCT_DESCRIPTION } from "@/lib/constants";
 import type { Product } from "@prisma/client";
 
@@ -38,7 +39,13 @@ export function ProductCard({ product }: ProductCardProps) {
         href={`/products/${product.slug}`}
         className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border-b border-[var(--prg-border)] p-6"
       >
-        <VialSVG capColor={product.capColor} size={120} className="w-4/5 max-w-[140px] h-auto" />
+        <ProductImage
+          slug={product.slug}
+          capColor={product.capColor}
+          alt={`${product.displayName} research peptide`}
+          variant="card"
+          className="w-4/5 max-w-[140px] h-auto object-contain"
+        />
       </Link>
       <div className="p-4 flex-1">
         <Link

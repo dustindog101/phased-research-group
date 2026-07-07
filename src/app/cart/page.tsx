@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Minus, Plus, Trash2, ShoppingBag, Tag, X, ArrowRight } from "lucide-react";
 import { useCart, KIT_MULTIPLIER } from "@/hooks/useCart";
 import { VialThumb } from "@/components/store/VialSVG";
+import { ProductImage } from "@/components/store/product-image";
 import {
   formatPrice,
   getShippingCost,
@@ -125,9 +126,14 @@ export default function CartPage() {
                   >
                     <Link
                       href={`/products/${item.slug}`}
-                      className="shrink-0 w-16 h-16 flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded-[var(--prg-radius)]"
+                      className="shrink-0 w-16 h-16 flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded-[var(--prg-radius)] overflow-hidden"
                     >
-                      <VialThumb capColor={item.capColor} size={40} />
+                      <ProductImage
+                        slug={item.slug}
+                        capColor={item.capColor}
+                        alt={`${item.displayName} research peptide`}
+                        variant="thumb"
+                      />
                     </Link>
                     <div className="flex-1 min-w-0">
                       <Link
