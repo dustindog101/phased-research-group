@@ -23,11 +23,12 @@ const SIZES = [
 ];
 
 /**
- * Resize an image to a specific size using Canvas, return as WebP Blob.
+ * Resize an image to a specific size using Canvas, return as Blob.
+ * Uses PNG for large sizes (lossless, crisp text) and WebP for thumbnails (smaller).
  * Preserves transparency (no background fill) so PNGs with alpha look clean.
  */
-async function resizeImage(file: File | Blob, width: number): Promise<Blob> {
-  const img = await loadImage(file);
+async function resizeImage(source: File | Blob | string, width: number, sizeName: string): Promise<Blob> {
+  const img = await loadImage(source);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = width;
@@ -35,7 +36,6 @@ async function resizeImage(file: File | Blob, width: number): Promise<Blob> {
   if (!ctx) throw new Error("Canvas not supported");
 
   // Don't fill background — preserve transparency
-  // The product card already has a light gradient background that will show through
 
   // Draw image scaled to fit (contain), centered
   const scale = Math.min(width / img.width, width / img.height);
@@ -45,34 +45,49 @@ async function resizeImage(file: File | Blob, width: number): Promise<Blob> {
   const y = (width - drawHeight) / 2;
   ctx.drawImage(img, x, y, drawWidth, drawHeight);
 
-  // Convert to WebP with alpha
+  // Use PNG (lossless) for large sizes to keep text crisp, WebP for thumbnails
+  const useLossless = sizeName === "lg" || sizeName === "xl" || sizeName === "md";
+  const mimeType = useLossless ? "image/png" : "image/webp";
+  const quality = useLossless ? undefined : 0.95;
+
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (blob) resolve(blob);
         else reject(new Error("Failed to create blob"));
       },
-      "image/webp",
-      0.9 // higher quality for cleaner output
+      mimeType,
+      quality
     );
   });
 }
 
-/** Load a File/Blob into an HTMLImageElement */
-function loadImage(file: File | Blob): Promise<HTMLImageElement> {
+/** Load a File/Blob/URL into an HTMLImageElement (with CORS for cross-origin URLs) */
+function loadImage(source: File | Blob | string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
+    const url = typeof source === "string" ? source : URL.createObjectURL(source);
     const img = new Image();
+    // Set crossOrigin for URLs (allows canvas to read cross-origin images without tainting)
+    if (typeof source === "string") {
+      img.crossOrigin = "anonymous";
+    }
     img.onload = () => {
-      URL.revokeObjectURL(url);
+      if (typeof source !== "string") URL.revokeObjectURL(url);
       resolve(img);
     };
     img.onerror = () => {
-      URL.revokeObjectURL(url);
+      if (typeof source !== "string") URL.revokeObjectURL(url);
       reject(new Error("Failed to load image"));
     };
     img.src = url;
   });
+}
+
+/** Fetch an image URL and convert to a Blob (for cross-tab drops) */
+async function fetchImageAsBlob(url: string): Promise<Blob> {
+  const res = await fetch(url, { mode: "cors" });
+  if (!res.ok) throw new Error("Failed to fetch image");
+  return res.blob();
 }
 
 export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange }: ImageUploadProps) {
@@ -95,15 +110,15 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
 
   const previewUrl = blobImages?.md ?? (currentImageKey === null ? `/products/${slug}/md.webp` : null);
 
-  /** Process and upload an image file (from input, drop, or paste) */
-  const processAndUpload = useCallback(async (file: File | Blob) => {
-    // Validate type if it's a File
-    if (file instanceof File) {
-      if (!file.type.startsWith("image/")) {
+  /** Process and upload an image (from input, drop, paste, or cross-tab URL) */
+  const processAndUpload = useCallback(async (source: File | Blob | string) => {
+    // Validate type/size if it's a File
+    if (source instanceof File) {
+      if (!source.type.startsWith("image/")) {
         toast.error("Please select a PNG, JPG, WebP, or GIF image");
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
+      if (source.size > 10 * 1024 * 1024) {
         toast.error("Image must be under 10MB");
         return;
       }
@@ -114,12 +129,14 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       toast.info("Optimizing image...");
       const blobs: Record<string, Blob> = {};
       for (const size of SIZES) {
-        blobs[size.name] = await resizeImage(file, size.width);
+        const blob = await resizeImage(source, size.width, size.name);
+        blobs[size.name] = blob;
       }
 
       const formData = new FormData();
       for (const [name, blob] of Object.entries(blobs)) {
-        formData.append(name, blob, `${name}.webp`);
+        const ext = blob.type === "image/png" ? "png" : "webp";
+        formData.append(name, blob, `${name}.${ext}`);
       }
 
       const res = await fetch(`/api/admin/products/${productId}/image`, {
@@ -164,16 +181,59 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
     setDragging(false);
   };
 
-  /** Handle drop */
+  /** Handle drop — supports files from desktop AND images/URLs from other browser tabs */
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragging(false);
 
+    // 1. Check for dropped files (from desktop/file explorer)
     const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-    const file = files[0];
-    await processAndUpload(file);
+    if (files.length > 0) {
+      await processAndUpload(files[0]);
+      return;
+    }
+
+    // 2. Check for image dragged from another browser tab (Safari/Chrome)
+    // The image data may be in items as a file
+    const items = Array.from(e.dataTransfer.items || []);
+    for (const item of items) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          await processAndUpload(file);
+          return;
+        }
+      }
+    }
+
+    // 3. Check for URL (image dragged from another tab as a link)
+    const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+    if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+      try {
+        // Try to fetch the image directly
+        await processAndUpload(url);
+      } catch {
+        toast.error("Couldn't load that image. Try saving it first, then upload the file.");
+      }
+      return;
+    }
+
+    // 4. Check for HTML (dragged image element with src)
+    const html = e.dataTransfer.getData("text/html");
+    if (html) {
+      const match = html.match(/<img[^>]+src="([^"]+)"/);
+      if (match && match[1]) {
+        try {
+          await processAndUpload(match[1]);
+        } catch {
+          toast.error("Couldn't load that image. Try saving it first, then upload the file.");
+        }
+        return;
+      }
+    }
+
+    toast.error("No image found. Try dragging an image file instead.");
   };
 
   /** Handle paste */
