@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
 import { VialSVG } from "./VialSVG";
-import { ProductImage } from "./product-image";
+import { ProductImage, parseBlobImages } from "./product-image";
 import { formatPrice, DEFAULT_PRODUCT_DESCRIPTION } from "@/lib/constants";
 import type { Product } from "@prisma/client";
 
@@ -45,6 +45,7 @@ export function ProductCard({ product }: ProductCardProps) {
           alt={`${product.displayName} research peptide`}
           variant="card"
           className="w-4/5 max-w-[140px] h-auto object-contain"
+          blobImages={parseBlobImages(product.imageKey)}
         />
       </Link>
       <div className="p-4 flex-1">

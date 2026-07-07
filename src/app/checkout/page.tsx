@@ -6,7 +6,6 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useCart, KIT_MULTIPLIER } from "@/hooks/useCart";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { CryptoPayModal } from "@/components/payments/crypto-pay-modal";
 import { VialThumb } from "@/components/store/VialSVG";
 import { ProductImage } from "@/components/store/product-image";
 import {
@@ -39,9 +38,6 @@ export default function CheckoutPage() {
   const [ruoAccepted, setRuoAccepted] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [payModalOpen, setPayModalOpen] = useState(false);
-  const [pendingOrderId, setPendingOrderId] = useState<string>("");
-  const [payToken, setPayToken] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     fullName: user?.name ?? "",
@@ -145,6 +141,7 @@ export default function CheckoutPage() {
       if (!intentRes.ok) throw new Error(intentData.error || "Failed to create payment intent");
 
       // Step 3: If not logged in, mint a pay token for the guest
+      let guestPayToken: string | null = null;
       if (!user) {
         const payRes = await fetch("/api/payments/pay-session", {
           method: "POST",
@@ -152,25 +149,21 @@ export default function CheckoutPage() {
           body: JSON.stringify({ orderId }),
         });
         const payData = await payRes.json();
-        if (payRes.ok) setPayToken(payData.payToken);
+        if (payRes.ok) guestPayToken = payData.payToken;
       }
 
-      setPendingOrderId(orderId);
-      setPayModalOpen(true);
-      toast.success("Order created! Complete your crypto payment.");
+      // Step 4: Clear cart immediately (order is created, cart no longer needed)
+      clear();
+
+      // Step 5: Redirect to the order page with auto-open payment modal
+      const params = new URLSearchParams({ pay: "1" });
+      if (guestPayToken) params.set("payToken", guestPayToken);
+      router.push(`/order/${orderId}?${params.toString()}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Checkout failed");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handlePaid = () => {
-    clear();
-    toast.success("Payment confirmed! Redirecting to order confirmation...");
-    setTimeout(() => {
-      router.push(`/account/orders/${pendingOrderId}`);
-    }, 1500);
   };
 
   if (items.length === 0) {
@@ -503,14 +496,6 @@ export default function CheckoutPage() {
           </form>
         </div>
       </section>
-
-      <CryptoPayModal
-        orderId={pendingOrderId}
-        payToken={payToken}
-        open={payModalOpen}
-        onClose={() => setPayModalOpen(false)}
-        onPaid={handlePaid}
-      />
     </>
   );
 }

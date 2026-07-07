@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "@/hooks/useCart";
 import { VialThumb } from "@/components/store/VialSVG";
-import { ProductImage } from "@/components/store/product-image";
+import { ProductImage, parseBlobImages } from "@/components/store/product-image";
 import { formatPrice, CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 import { Search, Check } from "lucide-react";
@@ -193,6 +193,7 @@ function CategoryGroup({
                   capColor={p.capColor}
                   alt={`${p.displayName} research peptide`}
                   variant="table"
+                  blobImages={parseBlobImages(p.imageKey)}
                 />
               </Link>
               <Link href={`/products/${p.slug}`} className="font-medium hover:text-[var(--prg-accent)]">

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Minus, Plus, ShoppingCart, Check, ChevronRight, FlaskConical } from "lucide-react";
 import { useCart, KIT_MULTIPLIER } from "@/hooks/useCart";
 import { VialSVG } from "@/components/store/VialSVG";
-import { ProductImage } from "@/components/store/product-image";
+import { ProductImage, parseBlobImages } from "@/components/store/product-image";
 import { formatPrice, DEFAULT_PRODUCT_DESCRIPTION } from "@/lib/constants";
 import type { Product } from "@prisma/client";
 import Link from "next/link";
@@ -78,6 +78,7 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
                 variant="detail"
                 priority
                 className="max-w-full max-h-full object-contain"
+                blobImages={parseBlobImages(product.imageKey)}
               />
             </div>
             <div className="grid grid-cols-4 gap-3">

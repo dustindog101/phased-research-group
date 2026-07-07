@@ -11,18 +11,17 @@ interface ProductImageProps {
   variant: "card" | "detail" | "thumb" | "table";
   className?: string;
   priority?: boolean;
+  /** Blob image URLs (from product.imageKey). If provided, used instead of static file. */
+  blobImages?: Record<string, string> | null;
 }
 
 /**
  * ProductImage — shows optimized product photo when available, falls back to SVG vial.
  *
- * Image files at /products/{slug}/{size}.webp
- * Sizes: thumb (80px), sm (200px), md (400px), lg (800px), xl (1200px)
- *
- * Uses Next.js Image component for:
- * - Automatic lazy loading
- * - Responsive srcset
- * - Format negotiation
+ * Image sources (in priority order):
+ * 1. blobImages (from Vercel Blob, uploaded via admin) — uses "blob:" prefix in product.imageKey
+ * 2. Static file at /products/{slug}/{size}.webp (from optimize-product-image.ts script)
+ * 3. SVG vial fallback
  */
 
 const SIZE_MAP = {
@@ -39,10 +38,13 @@ export function ProductImage({
   variant,
   className,
   priority = false,
+  blobImages,
 }: ProductImageProps) {
   const [errored, setErrored] = useState(false);
   const config = SIZE_MAP[variant];
-  const imageSrc = `/products/${slug}/${config.src}.webp`;
+
+  // Determine image source: blob URL > static file > SVG fallback
+  const imageSrc = blobImages?.[config.src] ?? `/products/${slug}/${config.src}.webp`;
 
   if (errored) {
     if (variant === "table") return <VialThumb capColor={capColor} size={40} />;
@@ -60,6 +62,20 @@ export function ProductImage({
       priority={priority}
       onError={() => setErrored(true)}
       sizes={variant === "detail" ? "(max-width: 768px) 100vw, 400px" : `${config.width}px`}
+      unoptimized={!!blobImages} // Blob URLs are already optimized
     />
   );
+}
+
+/**
+ * Parse product.imageKey field into blob image URLs.
+ * Returns null if no blob images (static file or fallback will be used).
+ */
+export function parseBlobImages(imageKey: string | null): Record<string, string> | null {
+  if (!imageKey || !imageKey.startsWith("blob:")) return null;
+  try {
+    return JSON.parse(imageKey.replace("blob:", ""));
+  } catch {
+    return null;
+  }
 }

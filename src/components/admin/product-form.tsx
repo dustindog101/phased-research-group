@@ -7,6 +7,7 @@ import { Save, Loader2, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/constants";
 import { VialSVG } from "@/components/store/VialSVG";
+import { ImageUpload } from "@/components/admin/image-upload";
 import type { Product } from "@prisma/client";
 
 interface ProductFormProps {
@@ -292,6 +293,23 @@ export function ProductForm({ product, mode }: ProductFormProps) {
             <p className="text-sm font-semibold">{form.displayName || "Product Name"}</p>
             <p className="text-[var(--prg-accent)] font-bold">${form.price.toFixed(2)}</p>
           </div>
+
+          {/* Image upload (only in edit mode — product must exist to upload) */}
+          {mode === "edit" && product && (
+            <ImageUpload
+              productId={product.id}
+              slug={product.slug}
+              capColor={form.capColor}
+              imageKey={product.imageKey}
+            />
+          )}
+          {mode === "create" && (
+            <div className="bg-[var(--prg-bg-alt)] border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5 text-center">
+              <p className="text-xs text-[var(--prg-text-muted)]">
+                Save the product first, then upload an image.
+              </p>
+            </div>
+          )}
 
           {/* Cap color */}
           <div className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5">
