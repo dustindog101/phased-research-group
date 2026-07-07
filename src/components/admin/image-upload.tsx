@@ -39,8 +39,9 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
     if (!file) return;
 
     // Validate
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+    const acceptedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+    if (!acceptedTypes.includes(file.type) && !file.type.startsWith("image/")) {
+      toast.error("Please select a PNG, JPG, WebP, or GIF image");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -128,7 +129,7 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
           onChange={handleUpload}
           className="hidden"
           id="product-image-upload"
@@ -167,8 +168,7 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       </div>
 
       <p className="text-[10px] text-[var(--prg-text-muted)] mt-3 leading-relaxed">
-        Image is automatically optimized to 5 sizes (80px to 1200px) in WebP format.
-        Square images work best. Max 10MB.
+        Accepts PNG, JPG, JPEG, WebP, and GIF. Automatically optimized to 5 sizes (80px to 1200px) in WebP format. Square images work best. Max 10MB.
       </p>
     </div>
   );
