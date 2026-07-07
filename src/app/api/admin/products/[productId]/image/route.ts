@@ -2,10 +2,13 @@
  * Admin Product Image Upload API
  *   POST /api/admin/products/:productId/image
  *
- * Receives an image file, optimizes it with sharp (5 sizes in WebP),
- * uploads to Vercel Blob, updates product.imageKey, deletes old images.
+ * Receives pre-optimized WebP images (5 sizes) generated client-side
+ * via Canvas API, uploads them to Vercel Blob, updates product.imageKey.
  *
- * Uses Vercel Blob (free 1GB on Hobby tier).
+ * No sharp dependency — image optimization happens in the browser.
+ *
+ * Expected FormData fields:
+ *   thumb, sm, md, lg, xl — each a WebP Blob
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,13 +21,7 @@ async function requireAdminApi(): Promise<boolean> {
   return session?.role === "ADMIN";
 }
 
-const SIZES = [
-  { name: "thumb", width: 80 },
-  { name: "sm", width: 200 },
-  { name: "md", width: 400 },
-  { name: "lg", width: 800 },
-  { name: "xl", width: 1200 },
-];
+const SIZES = ["thumb", "sm", "md", "lg", "xl"];
 
 export async function POST(
   req: NextRequest,
@@ -36,8 +33,6 @@ export async function POST(
   const { productId } = await params;
 
   try {
-    // Dynamic imports (sharp + blob) — avoids load-time failures
-    const sharp = (await import("sharp")).default;
     const { put, del } = await import("@vercel/blob");
 
     const product = await db.product.findUnique({ where: { id: productId } });
@@ -46,58 +41,47 @@ export async function POST(
     }
 
     const formData = await req.formData();
-    const file = formData.get("image") as File | null;
-    if (!file) {
-      return NextResponse.json({ error: "No image file provided" }, { status: 400 });
-    }
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "File must be an image" }, { status: 400 });
+    // Validate all 5 sizes are present
+    const files: Record<string, File> = {};
+    for (const size of SIZES) {
+      const file = formData.get(size) as File | null;
+      if (!file) {
+        return NextResponse.json({ error: `Missing image size: ${size}` }, { status: 400 });
+      }
+      files[size] = file;
     }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "Image must be under 10MB" }, { status: 400 });
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
 
     // Delete old blob images if they exist
     if (product.imageKey?.startsWith("blob:")) {
       try {
         const oldUrls = JSON.parse(product.imageKey.replace("blob:", ""));
-        if (Array.isArray(oldUrls)) {
-          await Promise.all(oldUrls.map((url: string) => del(url).catch(() => {})));
-        }
+        await Promise.all(
+          Object.values(oldUrls).map((url: unknown) =>
+            del(url as string).catch(() => {})
+          )
+        );
       } catch {
         // Old format or parse error, skip deletion
       }
     }
 
-    // Generate optimized images and upload to Blob
+    // Upload each size to Vercel Blob
     const imageUrls: Record<string, string> = {};
     const slug = product.slug;
 
     for (const size of SIZES) {
-      const optimized = await sharp(buffer)
-        .resize({
-          width: size.width,
-          height: size.width,
-          fit: "contain",
-          background: { r: 248, g: 250, b: 252, alpha: 1 },
-        })
-        .webp({ quality: 85, effort: 6 })
-        .toBuffer();
+      const file = files[size];
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
 
-      const blob = await put(`products/${slug}/${size.name}.webp`, optimized, {
+      const blob = await put(`products/${slug}/${size}.webp`, buffer, {
         access: "public",
         contentType: "image/webp",
         addRandomSuffix: false,
       });
 
-      imageUrls[size.name] = blob.url;
+      imageUrls[size] = blob.url;
     }
 
     // Store the blob URLs in imageKey field as JSON
@@ -131,7 +115,6 @@ export async function DELETE(
   const { productId } = await params;
 
   try {
-    const { del } = await import("@vercel/blob");
     const product = await db.product.findUnique({ where: { id: productId } });
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -140,6 +123,7 @@ export async function DELETE(
     // Delete blob images if they exist
     if (product.imageKey?.startsWith("blob:")) {
       try {
+        const { del } = await import("@vercel/blob");
         const urls = JSON.parse(product.imageKey.replace("blob:", ""));
         const urlValues = Object.values(urls);
         await Promise.all(

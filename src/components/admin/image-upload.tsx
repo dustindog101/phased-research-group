@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { toast } from "sonner";
-import { Upload, Loader2, Trash2, ImageIcon } from "lucide-react";
+import { Upload, Loader2, Trash2 } from "lucide-react";
 import { VialSVG } from "@/components/store/VialSVG";
 
 interface ImageUploadProps {
@@ -11,6 +11,65 @@ interface ImageUploadProps {
   capColor: string;
   imageKey: string | null;
   onImageChange?: (imageKey: string | null) => void;
+}
+
+const SIZES = [
+  { name: "thumb", width: 80 },
+  { name: "sm", width: 200 },
+  { name: "md", width: 400 },
+  { name: "lg", width: 800 },
+  { name: "xl", width: 1200 },
+];
+
+/** Resize an image file to a specific size using Canvas, return as WebP Blob */
+async function resizeImage(file: File, width: number): Promise<Blob> {
+  const img = await loadImage(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = width;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  // Fill background (matches card bg #f8fafc)
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(0, 0, width, width);
+
+  // Draw image scaled to fit (contain)
+  const scale = Math.min(width / img.width, width / img.height);
+  const drawWidth = img.width * scale;
+  const drawHeight = img.height * scale;
+  const x = (width - drawWidth) / 2;
+  const y = (width - drawHeight) / 2;
+  ctx.drawImage(img, x, y, drawWidth, drawHeight);
+
+  // Convert to WebP
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to create blob"));
+      },
+      "image/webp",
+      0.85
+    );
+  });
+}
+
+/** Load a File into an HTMLImageElement */
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image"));
+    };
+    img.src = url;
+  });
 }
 
 export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange }: ImageUploadProps) {
@@ -30,17 +89,14 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       })()
     : null;
 
-  // Check if static image exists (we can't check at runtime easily, so show preview based on imageKey)
-  const hasStaticImage = !currentImageKey; // If no blob image, static may exist
-  const previewUrl = blobImages?.md ?? (hasStaticImage ? `/products/${slug}/md.webp` : null);
+  const previewUrl = blobImages?.md ?? (currentImageKey === null ? `/products/${slug}/md.webp` : null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Validate
-    const acceptedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
-    if (!acceptedTypes.includes(file.type) && !file.type.startsWith("image/")) {
+    if (!file.type.startsWith("image/")) {
       toast.error("Please select a PNG, JPG, WebP, or GIF image");
       return;
     }
@@ -51,9 +107,20 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
+      // Client-side: generate 5 optimized WebP sizes using Canvas
+      toast.info("Optimizing image...");
+      const blobs: Record<string, Blob> = {};
+      for (const size of SIZES) {
+        blobs[size.name] = await resizeImage(file, size.width);
+      }
 
+      // Build FormData with all sizes
+      const formData = new FormData();
+      for (const [name, blob] of Object.entries(blobs)) {
+        formData.append(name, blob, `${name}.webp`);
+      }
+
+      // Upload to server (forwards to Vercel Blob)
       const res = await fetch(`/api/admin/products/${productId}/image`, {
         method: "POST",
         body: formData,
@@ -62,8 +129,9 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
-      setCurrentImageKey(data.imageKey || `blob:${JSON.stringify(data.images)}`);
-      onImageChange?.(data.imageKey || `blob:${JSON.stringify(data.images)}`);
+      const newImageKey = `blob:${JSON.stringify(data.images)}`;
+      setCurrentImageKey(newImageKey);
+      onImageChange?.(newImageKey);
       toast.success("Image uploaded and optimized");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
@@ -106,7 +174,6 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
             alt="Product preview"
             className="max-w-full max-h-full object-contain"
             onError={(e) => {
-              // If static image fails to load, show SVG vial
               e.currentTarget.style.display = "none";
               const sibling = e.currentTarget.nextElementSibling as HTMLElement;
               if (sibling) sibling.style.display = "block";
@@ -168,7 +235,7 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       </div>
 
       <p className="text-[10px] text-[var(--prg-text-muted)] mt-3 leading-relaxed">
-        Accepts PNG, JPG, JPEG, WebP, and GIF. Automatically optimized to 5 sizes (80px to 1200px) in WebP format. Square images work best. Max 10MB.
+        Accepts PNG, JPG, JPEG, WebP, and GIF. Images are optimized in your browser to 5 sizes (80px to 1200px) in WebP format. Square images work best. Max 10MB.
       </p>
     </div>
   );
