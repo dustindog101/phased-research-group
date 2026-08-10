@@ -169,6 +169,10 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
   const [currentImageKey, setCurrentImageKey] = useState(imageKey);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setCurrentImageKey(imageKey);
+  }, [imageKey]);
+
   // Parse blob images for preview
   const blobImages = currentImageKey?.startsWith("blob:")
     ? (() => {
@@ -181,7 +185,10 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
     : null;
 
   // Use high-resolution md/lg preview URL for crisp admin preview
-  const previewUrl = blobImages?.lg ?? blobImages?.md ?? (currentImageKey === null ? `/products/${slug}/lg.webp` : null);
+  const previewUrl =
+    blobImages?.lg ??
+    blobImages?.md ??
+    (currentImageKey && !currentImageKey.startsWith("blob:") ? currentImageKey : `/products/${slug}/lg.webp`);
 
   /** Process and upload an image (from input, drop, paste, or cross-tab URL) */
   const processAndUpload = useCallback(

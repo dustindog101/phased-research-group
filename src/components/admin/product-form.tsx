@@ -22,6 +22,8 @@ export function ProductForm({ product, mode }: ProductFormProps) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [imageKey, setImageKey] = useState<string | null>(product?.imageKey ?? null);
+
   const [form, setForm] = useState({
     slug: product?.slug ?? "",
     name: product?.name ?? "",
@@ -40,6 +42,11 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     longDescription: product?.longDescription ?? "",
     coaUrl: product?.coaUrl ?? "",
   });
+
+  const handleImageChange = (newKey: string | null) => {
+    setImageKey(newKey);
+    router.refresh();
+  };
 
   const handleCategoryChange = (catId: string) => {
     const cat = CATEGORIES.find((c) => c.id === catId);
@@ -312,7 +319,8 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               productId={product.id}
               slug={product.slug}
               capColor={form.capColor}
-              imageKey={product.imageKey}
+              imageKey={imageKey}
+              onImageChange={handleImageChange}
             />
           )}
           {mode === "create" && (

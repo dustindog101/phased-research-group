@@ -69,6 +69,7 @@ export async function POST(
     // Upload each size to Vercel Blob (preserve original format — PNG or WebP)
     const imageUrls: Record<string, string> = {};
     const slug = product.slug;
+    const timestamp = Date.now();
 
     for (const size of SIZES) {
       const file = files[size];
@@ -80,7 +81,7 @@ export async function POST(
       const ext = isPng ? "png" : "webp";
       const contentType = isPng ? "image/png" : "image/webp";
 
-      const blob = await put(`products/${slug}/${size}.${ext}`, buffer, {
+      const blob = await put(`products/${slug}/${timestamp}-${size}.${ext}`, buffer, {
         access: "public",
         contentType,
         addRandomSuffix: false,
