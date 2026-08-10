@@ -62,12 +62,23 @@ export function ProductForm({ product, mode }: ProductFormProps) {
       if (!res.ok) throw new Error(data.error || "Save failed");
 
       toast.success(mode === "create" ? "Product created" : "Product updated");
-      router.push("/admin/products");
+      if (mode === "create") {
+        router.push(data.id ? `/admin/products/${data.id}` : "/admin/products");
+      }
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleBack = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1 && document.referrer.includes("/admin/products")) {
+      router.back();
+    } else {
+      router.push("/admin/products");
     }
   };
 
@@ -96,6 +107,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
       <div className="flex items-center justify-between">
         <Link
           href="/admin/products"
+          onClick={handleBack}
           className="inline-flex items-center gap-1 text-xs text-[var(--prg-text-muted)] hover:text-[var(--prg-accent)]"
         >
           <ArrowLeft size={14} /> Back to products

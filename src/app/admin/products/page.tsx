@@ -3,6 +3,7 @@ import { formatPrice } from "@/lib/constants";
 import Link from "next/link";
 import { Plus, ChevronRight } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants";
+import { ProductsScrollRestorer } from "@/components/admin/products-scroll-restorer";
 
 export default async function AdminProductsPage({
   searchParams,
@@ -30,6 +31,7 @@ export default async function AdminProductsPage({
 
   return (
     <div className="p-6 md:p-8">
+      <ProductsScrollRestorer />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-[28px] font-bold uppercase tracking-[3px] mb-1" style={{ fontFamily: "var(--font-display)" }}>
