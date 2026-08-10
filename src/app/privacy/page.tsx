@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "Privacy Policy for Phased Research Group.",
+  description: "Privacy Policy for Phase Research Group.",
 };
 
 const LAST_UPDATED = "January 2025";
@@ -23,9 +23,9 @@ export default function PrivacyPage() {
               1. Introduction
             </h2>
             <p>
-              Phased Research Group (&ldquo;PRG,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) respects
+              Phase Research Group (&ldquo;PRG,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) respects
               your privacy. This Privacy Policy explains how we collect, use, disclose, and protect your
-              personal information when you visit phasedresearchgroup.com or purchase products from us. By
+              personal information when you visit phaseresearch.org or purchase products from us. By
               using our Site, you consent to the practices described in this policy.
             </p>
           </section>
@@ -147,7 +147,7 @@ export default function PrivacyPage() {
             </ul>
             <p className="mt-3">
               To exercise these rights, email{" "}
-              <a href="mailto:support@phasedresearchgroup.com" className="text-[var(--prg-accent)] underline">support@phasedresearchgroup.com</a>{" "}
+              <a href="mailto:support@phaseresearch.org" className="text-[var(--prg-accent)] underline">support@phaseresearch.org</a>{" "}
               with &ldquo;Privacy Request&rdquo; in the subject line.
             </p>
           </section>
@@ -202,7 +202,7 @@ export default function PrivacyPage() {
             </h2>
             <p>
               Privacy questions? Email{" "}
-              <a href="mailto:support@phasedresearchgroup.com" className="text-[var(--prg-accent)] underline">support@phasedresearchgroup.com</a>{" "}
+              <a href="mailto:support@phaseresearch.org" className="text-[var(--prg-accent)] underline">support@phaseresearch.org</a>{" "}
               with &ldquo;Privacy&rdquo; in the subject line.
             </p>
           </section>

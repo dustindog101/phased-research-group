@@ -32,7 +32,7 @@ async function logEmail(params: EmailParams) {
 
 async function sendEmail(params: EmailParams): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM ?? "Phased Research Group <noreply@phasedresearchgroup.com>";
+  const fromEmail = process.env.EMAIL_FROM ?? "Phase Research Group <noreply@phaseresearch.org>";
 
   if (!apiKey) {
     console.log(`[EMAIL] (dev mode, not sent) To: ${params.to} | Subject: ${params.subject}`);
@@ -110,7 +110,7 @@ export async function sendOrderConfirmation(params: {
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
       <div style="background:#1e3a5f;padding:20px;text-align:center;">
-        <h1 style="color:#fff;font-size:22px;margin:0;text-transform:uppercase;letter-spacing:2px;">Phased Research Group</h1>
+        <h1 style="color:#fff;font-size:22px;margin:0;text-transform:uppercase;letter-spacing:2px;">Phase Research Group</h1>
       </div>
       <div style="padding:24px;">
         <h2 style="color:#1e3a5f;font-size:18px;">Order Confirmation</h2>

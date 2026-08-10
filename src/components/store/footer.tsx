@@ -21,13 +21,13 @@ export function Footer() {
                   className="text-[18px] font-semibold uppercase tracking-[2px] text-white"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
-                  Phased Research
+                  Phase Research
                 </div>
                 <div className="text-[10px] tracking-[3px] text-white/50">Group</div>
               </div>
             </div>
             <p className="text-[13px] leading-[1.7] text-white/65 mb-4">
-              Phased Research Group is a research chemical supplier and is not a compounding pharmacy
+              Phase Research Group is a research chemical supplier and is not a compounding pharmacy
               or chemical compounding facility as defined under 503A of the Federal Food, Drug, and
               Cosmetic Act. We are not an outsourcing facility as defined under 503B.
             </p>
@@ -68,7 +68,7 @@ export function Footer() {
               Contact
             </h4>
             <ul className="space-y-2.5 text-[13px]">
-              <li><a href="mailto:support@phasedresearchgroup.com" className="hover:text-white break-all">support@phasedresearchgroup.com</a></li>
+              <li><a href="mailto:support@phaseresearch.org" className="hover:text-white break-all">support@phaseresearch.org</a></li>
               <li className="text-white/55">Mon–Fri, 9am–5pm CST</li>
               <li className="pt-2">
                 <span className="inline-block px-2 py-1 bg-white/10 rounded text-[10px] uppercase tracking-[1px] text-white/70">
@@ -81,7 +81,7 @@ export function Footer() {
 
         <div className="border-t border-white/10 py-5 flex flex-col md:flex-row justify-between items-center gap-3 text-[12px]">
           <p className="text-white/55 text-center md:text-left">
-            &copy; {new Date().getFullYear()} Phased Research Group. All rights reserved.
+            &copy; {new Date().getFullYear()} Phase Research Group. All rights reserved.
           </p>
           <p className="text-white/55 text-center md:text-right max-w-md">
             For research use only. Not for human consumption. 21+ required. Customers responsible for lawful handling.

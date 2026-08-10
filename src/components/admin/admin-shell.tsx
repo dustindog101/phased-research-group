@@ -47,7 +47,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <div className="text-sm font-semibold text-white" style={{ fontFamily: "var(--font-display)" }}>
                 Admin Panel
               </div>
-              <div className="text-[10px] text-white/50 uppercase tracking-[1px]">Phased Research</div>
+              <div className="text-[10px] text-white/50 uppercase tracking-[1px]">Phase Research</div>
             </div>
           </div>
         </div>

@@ -52,7 +52,7 @@ const FAQS = [
   },
   {
     q: "How do I contact you?",
-    a: "Email support@phasedresearchgroup.com. We respond within one business day, usually faster during weekday business hours (9-5 CST). For order-specific questions, include your order number in the subject line. We don't do phone support or Telegram.",
+    a: "Email support@phaseresearch.org. We respond within one business day, usually faster during weekday business hours (9-5 CST). For order-specific questions, include your order number in the subject line. We don't do phone support or Telegram.",
   },
 ];
 

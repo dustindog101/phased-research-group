@@ -126,8 +126,8 @@ export default function ContactPage() {
                   <span className="block text-[11px] font-bold uppercase tracking-[1.5px] text-[var(--prg-text-muted)] mb-1">
                     Email Support
                   </span>
-                  <a href="mailto:support@phasedresearchgroup.com" className="text-sm font-medium hover:text-[var(--prg-accent)]">
-                    support@phasedresearchgroup.com
+                  <a href="mailto:support@phaseresearch.org" className="text-sm font-medium hover:text-[var(--prg-accent)]">
+                    support@phaseresearch.org
                   </a>
                   <p className="text-xs text-[var(--prg-text-muted)] mt-1">
                     For order questions, include your order number

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "Terms of Service for Phased Research Group — research peptide supplier.",
+  description: "Terms of Service for Phase Research Group — research peptide supplier.",
 };
 
 const LAST_UPDATED = "January 2025";
@@ -24,8 +24,8 @@ export default function TermsPage() {
               1. Acceptance of Terms
             </h2>
             <p className="mb-3">
-              Welcome to Phased Research Group (&ldquo;PRG,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;).
-              By accessing or using our website at phasedresearchgroup.com (the &ldquo;Site&rdquo;), purchasing any
+              Welcome to Phase Research Group (&ldquo;PRG,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;).
+              By accessing or using our website at phaseresearch.org (the &ldquo;Site&rdquo;), purchasing any
               products, or creating an account, you agree to be bound by these Terms of Service (&ldquo;Terms&rdquo;).
               If you do not agree to these Terms, please do not use our Site or purchase our products.
             </p>
@@ -55,7 +55,7 @@ export default function TermsPage() {
             <div className="bg-[var(--prg-bg-alt)] border-l-4 border-[var(--prg-accent)] rounded-r-[4px] p-4 mb-4">
               <p className="text-sm font-semibold text-[var(--prg-accent)] mb-2">READ CAREFULLY</p>
               <p className="mb-2">
-                All products sold by Phased Research Group are intended <strong>solely for laboratory
+                All products sold by Phase Research Group are intended <strong>solely for laboratory
                 research purposes</strong>. Our products are:
               </p>
               <ul className="list-disc pl-6 space-y-1 text-sm">
@@ -77,7 +77,7 @@ export default function TermsPage() {
               laboratory, or analytical purposes only, and are not for human consumption.
             </p>
             <p>
-              <strong>Regulatory Status:</strong> Phased Research Group is a chemical supplier. PRG is{" "}
+              <strong>Regulatory Status:</strong> Phase Research Group is a chemical supplier. PRG is{" "}
               <strong>not a compounding pharmacy or chemical compounding facility</strong> as defined under
               503A of the Federal Food, Drug, and Cosmetic Act. PRG is <strong>not an outsourcing facility</strong>{" "}
               as defined under 503B of the Federal Food, Drug, and Cosmetic Act.
@@ -249,8 +249,8 @@ export default function TermsPage() {
             </h2>
             <p>
               Questions about these Terms? Contact us at{" "}
-              <a href="mailto:support@phasedresearchgroup.com" className="text-[var(--prg-accent)] underline">
-                support@phasedresearchgroup.com
+              <a href="mailto:support@phaseresearch.org" className="text-[var(--prg-accent)] underline">
+                support@phaseresearch.org
               </a>{" "}
               or see our <Link href="/contact" className="text-[var(--prg-accent)] underline">Contact page</Link>.
             </p>
