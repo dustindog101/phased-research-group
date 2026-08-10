@@ -1,7 +1,7 @@
 /**
  * Admin Products API
- *   GET    /api/admin/products       — list all products
- *   POST   /api/admin/products       — create a product
+ *   GET    /api/admin/products       — list all products with variants
+ *   POST   /api/admin/products       — create a parent product + variants
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,7 +11,12 @@ import { requireAdmin } from "@/lib/auth";
 export async function GET() {
   await requireAdmin();
   const products = await db.product.findMany({
-    orderBy: [{ category: "asc" }, { name: "asc" }, { dosage: "asc" }],
+    include: {
+      variants: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
   });
   return NextResponse.json({ products });
 }
@@ -21,35 +26,60 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Validate required fields
-    const required = ["slug", "name", "displayName", "category", "dosage", "sku", "price", "kitPrice"];
+    const required = ["name", "slug", "category"];
     for (const f of required) {
-      if (body[f] === undefined || body[f] === "") {
-        return NextResponse.json({ error: `Missing field: ${f}` }, { status: 400 });
+      if (!body[f]) {
+        return NextResponse.json({ error: `Missing required field: ${f}` }, { status: 400 });
       }
     }
 
+    const variants = Array.isArray(body.variants) && body.variants.length > 0
+      ? body.variants
+      : [
+          {
+            dosage: "5mg",
+            displayName: `${body.name} 5mg`,
+            sku: `PRG-${body.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}-5MG`,
+            price: 50,
+            kitPrice: 250,
+            capColor: "#0d9488",
+            inStock: true,
+            stockQty: 100,
+          },
+        ];
+
     const product = await db.product.create({
       data: {
-        slug: body.slug,
-        name: body.name,
-        displayName: body.displayName,
+        slug: body.slug.toLowerCase().trim(),
+        name: body.name.trim(),
         category: body.category,
         categoryLabel: body.categoryLabel ?? body.category,
-        dosage: body.dosage,
-        sku: body.sku.toUpperCase(),
-        price: parseFloat(body.price),
-        kitPrice: parseFloat(body.kitPrice),
-        capColor: body.capColor ?? "#0d9488",
-        featured: Boolean(body.featured),
-        inStock: body.inStock ?? true,
-        stockQty: parseInt(body.stockQty) || 0,
         description: body.description ?? null,
         longDescription: body.longDescription ?? null,
-        coaUrl: body.coaUrl ?? null,
+        featured: Boolean(body.featured),
+        imageKey: body.imageKey ?? null,
+        variants: {
+          create: variants.map((v: Record<string, unknown>, i: number) => ({
+            dosage: String(v.dosage || "5mg").trim(),
+            displayName: String(v.displayName || `${body.name} ${v.dosage}`).trim(),
+            sku: String(v.sku || `PRG-${body.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}-${v.dosage}`).toUpperCase().trim(),
+            price: parseFloat(String(v.price)) || 0,
+            kitPrice: parseFloat(String(v.kitPrice)) || 0,
+            capColor: String(v.capColor || "#0d9488"),
+            inStock: Boolean(v.inStock ?? true),
+            stockQty: parseInt(String(v.stockQty)) || 0,
+            coaUrl: (v.coaUrl as string) || null,
+            imageKey: (v.imageKey as string) || null,
+            sortOrder: i,
+          })),
+        },
+      },
+      include: {
+        variants: true,
       },
     });
-    return NextResponse.json({ product });
+
+    return NextResponse.json({ product, id: product.id });
   } catch (e) {
     console.error("POST /api/admin/products error:", e);
     return NextResponse.json(

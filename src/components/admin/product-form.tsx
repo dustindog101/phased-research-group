@@ -3,19 +3,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Save, Loader2, Trash2, ArrowLeft } from "lucide-react";
+import { Save, Loader2, Trash2, ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/constants";
 import { VialSVG } from "@/components/store/VialSVG";
 import { ImageUpload } from "@/components/admin/image-upload";
-import type { Product } from "@prisma/client";
+import type { ProductWithVariants } from "@/lib/products";
 
 interface ProductFormProps {
-  product?: Product;
+  product?: ProductWithVariants;
   mode: "create" | "edit";
 }
 
 const DEFAULT_COLORS = ["#0d9488", "#1e3a5f", "#2563eb", "#7c3aed", "#dc2626", "#d97706", "#16a34a", "#64748b"];
+
+interface VariantState {
+  id?: string;
+  dosage: string;
+  displayName: string;
+  sku: string;
+  price: number;
+  kitPrice: number;
+  capColor: string;
+  inStock: boolean;
+  stockQty: number;
+  coaUrl: string;
+}
 
 export function ProductForm({ product, mode }: ProductFormProps) {
   const router = useRouter();
@@ -27,21 +40,41 @@ export function ProductForm({ product, mode }: ProductFormProps) {
   const [form, setForm] = useState({
     slug: product?.slug ?? "",
     name: product?.name ?? "",
-    displayName: product?.displayName ?? "",
     category: product?.category ?? "metabolic",
     categoryLabel: product?.categoryLabel ?? "Metabolic & GLP Agonists",
-    dosage: product?.dosage ?? "",
-    sku: product?.sku ?? "",
-    price: product?.price ?? 0,
-    kitPrice: product?.kitPrice ?? 0,
-    capColor: product?.capColor ?? "#0d9488",
     featured: product?.featured ?? false,
-    inStock: product?.inStock ?? true,
-    stockQty: product?.stockQty ?? 0,
     description: product?.description ?? "",
     longDescription: product?.longDescription ?? "",
-    coaUrl: product?.coaUrl ?? "",
   });
+
+  const initialVariants: VariantState[] = product?.variants && product.variants.length > 0
+    ? product.variants.map((v) => ({
+        id: v.id,
+        dosage: v.dosage,
+        displayName: v.displayName,
+        sku: v.sku,
+        price: v.price,
+        kitPrice: v.kitPrice,
+        capColor: v.capColor,
+        inStock: v.inStock,
+        stockQty: v.stockQty,
+        coaUrl: v.coaUrl ?? "",
+      }))
+    : [
+        {
+          dosage: "5mg",
+          displayName: "",
+          sku: "",
+          price: 50,
+          kitPrice: 250,
+          capColor: "#0d9488",
+          inStock: true,
+          stockQty: 100,
+          coaUrl: "",
+        },
+      ];
+
+  const [variants, setVariants] = useState<VariantState[]>(initialVariants);
 
   const handleImageChange = (newKey: string | null) => {
     setImageKey(newKey);
@@ -53,17 +86,93 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     setForm({ ...form, category: catId, categoryLabel: cat?.label ?? catId });
   };
 
+  const handleAddVariant = () => {
+    const defaultDosage = `${(variants.length + 1) * 5}mg`;
+    const defaultName = form.name ? `${form.name} ${defaultDosage}` : "";
+    const defaultSku = form.name
+      ? `PRG-${form.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}-${defaultDosage.toUpperCase()}`
+      : "";
+
+    setVariants([
+      ...variants,
+      {
+        dosage: defaultDosage,
+        displayName: defaultName,
+        sku: defaultSku,
+        price: 60,
+        kitPrice: 300,
+        capColor: variants[0]?.capColor ?? "#0d9488",
+        inStock: true,
+        stockQty: 100,
+        coaUrl: "",
+      },
+    ]);
+  };
+
+  const handleRemoveVariant = (index: number) => {
+    if (variants.length <= 1) {
+      toast.error("At least one dosage variant is required.");
+      return;
+    }
+    setVariants(variants.filter((_, i) => i !== index));
+  };
+
+  const updateVariantField = <K extends keyof VariantState>(
+    index: number,
+    field: K,
+    value: VariantState[K]
+  ) => {
+    const updated = [...variants];
+    updated[index] = { ...updated[index], [field]: value };
+
+    // Auto-update displayName & sku if name or dosage changes
+    if (field === "dosage" && form.name) {
+      const dosageStr = value as string;
+      if (!updated[index].displayName || updated[index].displayName.startsWith(form.name)) {
+        updated[index].displayName = `${form.name} ${dosageStr}`;
+      }
+      if (!updated[index].sku || updated[index].sku.startsWith("PRG-")) {
+        const cleanName = form.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        const cleanDosage = dosageStr.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        updated[index].sku = `PRG-${cleanName}-${cleanDosage}`;
+      }
+    }
+
+    setVariants(updated);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!form.name.trim() || !form.slug.trim()) {
+      toast.error("Name and Slug are required.");
+      return;
+    }
+
+    if (variants.length === 0) {
+      toast.error("At least one variation is required.");
+      return;
+    }
+
     setSaving(true);
 
     try {
+      const payload = {
+        ...form,
+        imageKey,
+        variants: variants.map((v) => ({
+          ...v,
+          displayName: v.displayName.trim() || `${form.name} ${v.dosage}`,
+          sku: v.sku.trim() || `PRG-${form.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}-${v.dosage.toUpperCase()}`,
+        })),
+      };
+
       const url = mode === "create" ? "/api/admin/products" : `/api/admin/products/${product!.id}`;
       const method = mode === "create" ? "POST" : "PATCH";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Save failed");
@@ -90,7 +199,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
   };
 
   const handleDelete = async () => {
-    if (mode !== "create" && confirm(`Delete ${product?.displayName}? This cannot be undone.`)) {
+    if (mode !== "create" && confirm(`Delete ${product?.name}? This will remove all dosage variations.`)) {
       setDeleting(true);
       try {
         const res = await fetch(`/api/admin/products/${product!.id}`, { method: "DELETE" });
@@ -109,8 +218,11 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     }
   };
 
+  const primaryCapColor = variants[0]?.capColor ?? "#0d9488";
+  const firstPrice = variants[0]?.price ?? 0;
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <Link
           href="/admin/products"
@@ -146,15 +258,16 @@ export function ProductForm({ product, mode }: ProductFormProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         {/* Main fields */}
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Parent Product Info */}
           <div className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5 space-y-4">
             <h2 className="text-[15px] font-semibold uppercase tracking-[1.5px]" style={{ fontFamily: "var(--font-display)" }}>
-              Product Information
+              Parent Product Information
             </h2>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium mb-1.5">Name *</label>
+                <label className="block text-xs font-medium mb-1.5">Compound Name *</label>
                 <input
                   type="text"
                   required
@@ -165,47 +278,14 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5">Dosage *</label>
-                <input
-                  type="text"
-                  required
-                  value={form.dosage}
-                  onChange={(e) => setForm({ ...form, dosage: e.target.value })}
-                  className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm"
-                  placeholder="5mg"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-medium mb-1.5">Display Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={form.displayName}
-                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                  className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm"
-                  placeholder="Tirzepatide 5mg"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5">Slug *</label>
+                <label className="block text-xs font-medium mb-1.5">Parent Slug *</label>
                 <input
                   type="text"
                   required
                   value={form.slug}
                   onChange={(e) => setForm({ ...form, slug: e.target.value })}
                   className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm font-mono"
-                  placeholder="tirzepatide-5mg"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5">SKU *</label>
-                <input
-                  type="text"
-                  required
-                  value={form.sku}
-                  onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                  className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm font-mono"
-                  placeholder="PRG-TIRZEPAT-5MG"
+                  placeholder="tirzepatide"
                 />
               </div>
               <div>
@@ -232,36 +312,132 @@ export function ProductForm({ product, mode }: ProductFormProps) {
             </div>
           </div>
 
+          {/* Dosage Variations Builder Table */}
           <div className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5 space-y-4">
-            <h2 className="text-[15px] font-semibold uppercase tracking-[1.5px]" style={{ fontFamily: "var(--font-display)" }}>
-              Pricing
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="block text-xs font-medium mb-1.5">Price per Vial ($) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm"
-                />
+                <h2 className="text-[15px] font-semibold uppercase tracking-[1.5px]" style={{ fontFamily: "var(--font-display)" }}>
+                  Dosage Variations
+                </h2>
+                <p className="text-xs text-[var(--prg-text-muted)] mt-0.5">
+                  Configure dosages, SKUs, single vial prices, and future kit prices
+                </p>
               </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5">5-Vial Kit Price ($) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={form.kitPrice}
-                  onChange={(e) => setForm({ ...form, kitPrice: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={handleAddVariant}
+                className="inline-flex items-center gap-1 py-1.5 px-3 bg-[var(--prg-bg-alt)] border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-xs font-medium text-[var(--prg-accent)] hover:border-[var(--prg-accent)]"
+              >
+                <Plus size={14} /> Add Dosage
+              </button>
             </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--prg-border)] bg-[var(--prg-bg-alt)]">
+                    <th className="text-left p-2.5 uppercase tracking-[0.5px] text-[var(--prg-text-muted)]">Dosage</th>
+                    <th className="text-left p-2.5 uppercase tracking-[0.5px] text-[var(--prg-text-muted)]">SKU</th>
+                    <th className="text-left p-2.5 uppercase tracking-[0.5px] text-[var(--prg-text-muted)]">Price ($)</th>
+                    <th className="text-left p-2.5 uppercase tracking-[0.5px] text-[var(--prg-text-muted)]">Kit Price ($)</th>
+                    <th className="text-left p-2.5 uppercase tracking-[0.5px] text-[var(--prg-text-muted)]">Stock Qty</th>
+                    <th className="text-center p-2.5 uppercase tracking-[0.5px] text-[var(--prg-text-muted)]">In Stock</th>
+                    <th className="text-center p-2.5 uppercase tracking-[0.5px] text-[var(--prg-text-muted)]">Cap Color</th>
+                    <th className="p-2.5"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--prg-border)]">
+                  {variants.map((v, index) => (
+                    <tr key={index} className="hover:bg-slate-50">
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          required
+                          value={v.dosage}
+                          onChange={(e) => updateVariantField(index, "dosage", e.target.value)}
+                          className="w-20 px-2 py-1.5 border border-[var(--prg-border)] rounded text-xs font-semibold"
+                          placeholder="5mg"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          required
+                          value={v.sku}
+                          onChange={(e) => updateVariantField(index, "sku", e.target.value)}
+                          className="w-36 px-2 py-1.5 border border-[var(--prg-border)] rounded text-xs font-mono"
+                          placeholder="PRG-TIRZEPAT-5MG"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          value={v.price}
+                          onChange={(e) => updateVariantField(index, "price", parseFloat(e.target.value) || 0)}
+                          className="w-20 px-2 py-1.5 border border-[var(--prg-border)] rounded text-xs font-medium"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          value={v.kitPrice}
+                          onChange={(e) => updateVariantField(index, "kitPrice", parseFloat(e.target.value) || 0)}
+                          className="w-20 px-2 py-1.5 border border-[var(--prg-border)] rounded text-xs font-medium text-[var(--prg-text-muted)]"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          value={v.stockQty}
+                          onChange={(e) => updateVariantField(index, "stockQty", parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1.5 border border-[var(--prg-border)] rounded text-xs"
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={v.inStock}
+                          onChange={(e) => updateVariantField(index, "inStock", e.target.checked)}
+                          className="accent-[var(--prg-accent)] cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <input
+                          type="color"
+                          value={v.capColor}
+                          onChange={(e) => updateVariantField(index, "capColor", e.target.value)}
+                          className="w-7 h-7 rounded border border-[var(--prg-border)] cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVariant(index)}
+                          className="text-[var(--prg-text-muted)] hover:text-[var(--prg-danger)] p-1"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddVariant}
+              className="w-full py-2 border border-dashed border-[var(--prg-border)] rounded-[var(--prg-radius)] text-xs text-[var(--prg-text-muted)] hover:text-[var(--prg-accent)] hover:border-[var(--prg-accent)] flex items-center justify-center gap-1 transition-colors"
+            >
+              <Plus size={14} /> Add Another Dosage Variant
+            </button>
           </div>
 
+          {/* Description */}
           <div className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5 space-y-4">
             <h2 className="text-[15px] font-semibold uppercase tracking-[1.5px]" style={{ fontFamily: "var(--font-display)" }}>
               Description
@@ -273,7 +449,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 rows={2}
                 className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm"
-                placeholder="Brief product description"
+                placeholder="Brief compound description..."
               />
             </div>
             <div>
@@ -281,19 +457,9 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               <textarea
                 value={form.longDescription ?? ""}
                 onChange={(e) => setForm({ ...form, longDescription: e.target.value })}
-                rows={6}
+                rows={5}
                 className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm font-mono"
-                placeholder="## Overview&#10;Detailed description in markdown..."
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5">COA URL</label>
-              <input
-                type="url"
-                value={form.coaUrl ?? ""}
-                onChange={(e) => setForm({ ...form, coaUrl: e.target.value })}
-                className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm"
-                placeholder="https://..."
+                placeholder="## Research Overview..."
               />
             </div>
           </div>
@@ -307,10 +473,10 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               Preview
             </h3>
             <div className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded-[var(--prg-radius)] p-6 mb-3">
-              <VialSVG capColor={form.capColor} size={120} />
+              <VialSVG capColor={primaryCapColor} size={120} />
             </div>
-            <p className="text-sm font-semibold">{form.displayName || "Product Name"}</p>
-            <p className="text-[var(--prg-accent)] font-bold">${form.price.toFixed(2)}</p>
+            <p className="text-sm font-semibold">{form.name || "Compound Name"}</p>
+            <p className="text-[var(--prg-accent)] font-bold">${firstPrice.toFixed(2)}</p>
           </div>
 
           {/* Image upload (only in edit mode — product must exist to upload) */}
@@ -318,7 +484,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
             <ImageUpload
               productId={product.id}
               slug={product.slug}
-              capColor={form.capColor}
+              capColor={primaryCapColor}
               imageKey={imageKey}
               onImageChange={handleImageChange}
             />
@@ -330,32 +496,6 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               </p>
             </div>
           )}
-
-          {/* Cap color */}
-          <div className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5">
-            <h3 className="text-[13px] font-semibold uppercase tracking-[1.5px] mb-3" style={{ fontFamily: "var(--font-display)" }}>
-              Vial Cap Color
-            </h3>
-            <div className="grid grid-cols-4 gap-2 mb-3">
-              {DEFAULT_COLORS.map((color) => (
-                <button
-                  type="button"
-                  key={color}
-                  onClick={() => setForm({ ...form, capColor: color })}
-                  className={`aspect-square rounded-[var(--prg-radius)] border-2 ${
-                    form.capColor === color ? "border-[var(--prg-accent)] ring-2 ring-[var(--prg-accent)]/20" : "border-[var(--prg-border)]"
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-            <input
-              type="color"
-              value={form.capColor}
-              onChange={(e) => setForm({ ...form, capColor: e.target.value })}
-              className="w-full h-10 rounded-[var(--prg-radius)] border border-[var(--prg-border)]"
-            />
-          </div>
 
           {/* Status */}
           <div className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5 space-y-3">
@@ -369,26 +509,8 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                 onChange={(e) => setForm({ ...form, featured: e.target.checked })}
                 className="accent-[var(--prg-accent)]"
               />
-              <span className="text-sm">Featured product</span>
+              <span className="text-sm font-medium">Featured product</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.inStock}
-                onChange={(e) => setForm({ ...form, inStock: e.target.checked })}
-                className="accent-[var(--prg-accent)]"
-              />
-              <span className="text-sm">In stock</span>
-            </label>
-            <div>
-              <label className="block text-xs font-medium mb-1.5">Stock Quantity</label>
-              <input
-                type="number"
-                value={form.stockQty}
-                onChange={(e) => setForm({ ...form, stockQty: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm"
-              />
-            </div>
           </div>
         </div>
       </div>

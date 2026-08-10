@@ -2,21 +2,22 @@
 
 /**
  * Cart store — uses Zustand + localStorage for guests
- * Syncs to DB Cart/CartItem when user is logged in (via /api/cart)
+ * Syncs to DB Cart/CartItem when user is logged in
  */
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 export interface CartLineItem {
+  variantId: string;
   productId: string;
   slug: string;
   name: string;
   displayName: string;
   dosage: string;
-  price: number; // unit price
+  price: number; // single vial unit price
   capColor: string;
-  isKit: boolean; // true = 5-vial kit
+  isKit: boolean; // default false for single vials
   quantity: number;
 }
 
@@ -24,16 +25,14 @@ interface CartState {
   items: CartLineItem[];
   couponCode: string | null;
   addItem: (item: Omit<CartLineItem, "quantity">, quantity?: number) => void;
-  removeItem: (productId: string, isKit: boolean) => void;
-  updateQuantity: (productId: string, isKit: boolean, quantity: number) => void;
+  removeItem: (variantId: string) => void;
+  updateQuantity: (variantId: string, quantity: number) => void;
   clear: () => void;
   applyCoupon: (code: string) => void;
   removeCoupon: () => void;
   subtotal: () => number;
   itemCount: () => number;
 }
-
-const KIT_MULTIPLIER = 5;
 
 export const useCart = create<CartState>()(
   persist(
@@ -43,34 +42,28 @@ export const useCart = create<CartState>()(
 
       addItem: (item, quantity = 1) => {
         const items = [...get().items];
-        const idx = items.findIndex(
-          (i) => i.productId === item.productId && i.isKit === item.isKit
-        );
+        const idx = items.findIndex((i) => i.variantId === item.variantId);
         if (idx >= 0) {
           items[idx] = { ...items[idx], quantity: items[idx].quantity + quantity };
         } else {
-          items.push({ ...item, quantity });
+          items.push({ ...item, isKit: item.isKit ?? false, quantity });
         }
         set({ items });
       },
 
-      removeItem: (productId, isKit) => {
+      removeItem: (variantId) => {
         set({
-          items: get().items.filter(
-            (i) => !(i.productId === productId && i.isKit === isKit)
-          ),
+          items: get().items.filter((i) => i.variantId !== variantId),
         });
       },
 
-      updateQuantity: (productId, isKit, quantity) => {
+      updateQuantity: (variantId, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(productId, isKit);
+          get().removeItem(variantId);
           return;
         }
         const items = get().items.map((i) =>
-          i.productId === productId && i.isKit === isKit
-            ? { ...i, quantity }
-            : i
+          i.variantId === variantId ? { ...i, quantity } : i
         );
         set({ items });
       },
@@ -81,10 +74,7 @@ export const useCart = create<CartState>()(
       removeCoupon: () => set({ couponCode: null }),
 
       subtotal: () => {
-        return get().items.reduce((sum, i) => {
-          const unitPrice = i.isKit ? i.price * KIT_MULTIPLIER : i.price;
-          return sum + unitPrice * i.quantity;
-        }, 0);
+        return get().items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       },
 
       itemCount: () => {
@@ -106,5 +96,3 @@ export const useCart = create<CartState>()(
     }
   )
 );
-
-export { KIT_MULTIPLIER };

@@ -4,11 +4,11 @@ import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ProductCard } from "@/components/store/product-card";
 import { CATEGORIES } from "@/lib/constants";
-import type { Product } from "@prisma/client";
+import type { ProductWithVariants } from "@/lib/products";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 interface ShopClientProps {
-  products: Product[];
+  products: ProductWithVariants[];
 }
 
 type SortOption = "featured" | "price-asc" | "price-desc" | "name-asc";
@@ -54,20 +54,36 @@ export function ShopClient({ products }: ShopClientProps) {
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          p.displayName.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          p.categoryLabel.toLowerCase().includes(q)
+          p.categoryLabel.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q)) ||
+          p.variants?.some(
+            (v) =>
+              v.dosage.toLowerCase().includes(q) ||
+              v.displayName.toLowerCase().includes(q) ||
+              v.sku.toLowerCase().includes(q)
+          )
       );
     }
+
+    const getMinPrice = (p: ProductWithVariants) => {
+      const prices = p.variants?.map((v) => v.price) ?? [];
+      return prices.length > 0 ? Math.min(...prices) : 0;
+    };
+
+    const getMaxPrice = (p: ProductWithVariants) => {
+      const prices = p.variants?.map((v) => v.price) ?? [];
+      return prices.length > 0 ? Math.max(...prices) : 0;
+    };
+
     switch (sort) {
       case "price-asc":
-        list = [...list].sort((a, b) => a.price - b.price);
+        list = [...list].sort((a, b) => getMinPrice(a) - getMinPrice(b));
         break;
       case "price-desc":
-        list = [...list].sort((a, b) => b.price - a.price);
+        list = [...list].sort((a, b) => getMaxPrice(b) - getMaxPrice(a));
         break;
       case "name-asc":
-        list = [...list].sort((a, b) => a.displayName.localeCompare(b.displayName));
+        list = [...list].sort((a, b) => a.name.localeCompare(b.name));
         break;
       default:
         list = [...list].sort((a, b) => Number(b.featured) - Number(a.featured));

@@ -7,8 +7,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const product = await getProductBySlug(slug);
   if (!product) return { title: "Product Not Found" };
   return {
-    title: product.displayName,
-    description: product.description || `Buy ${product.displayName} — ${product.categoryLabel}. Laboratory-grade research peptide.`,
+    title: product.name,
+    description: product.description || `Buy ${product.name} — ${product.categoryLabel}. Laboratory-grade research peptide.`,
   };
 }
 

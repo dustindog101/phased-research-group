@@ -7,56 +7,80 @@ import { db } from "../db";
 import products from "./products.json";
 import bcrypt from "bcryptjs";
 
-interface SeedProduct {
-  id: string;
-  name: string;
+interface SeedVariant {
   dosage: string;
   displayName: string;
-  category: string;
-  categoryLabel: string;
+  sku: string;
   price: number;
   kitPrice: number;
-  sku: string;
-  featured: boolean;
   capColor: string;
   inStock: boolean;
+  stockQty: number;
+}
+
+interface SeedParentProduct {
+  slug: string;
+  name: string;
+  category: string;
+  categoryLabel: string;
+  featured: boolean;
+  description?: string | null;
+  variants: SeedVariant[];
 }
 
 async function seedProducts() {
-  console.log(`Seeding ${products.length} products...`);
-  for (const p of products as SeedProduct[]) {
-    await db.product.upsert({
-      where: { slug: p.id },
+  console.log(`Seeding ${products.length} parent products...`);
+  for (const p of products as SeedParentProduct[]) {
+    const parent = await db.product.upsert({
+      where: { slug: p.slug },
       update: {
         name: p.name,
-        displayName: p.displayName,
         category: p.category,
         categoryLabel: p.categoryLabel,
-        dosage: p.dosage,
-        sku: p.sku,
-        price: p.price,
-        kitPrice: p.kitPrice,
-        capColor: p.capColor,
         featured: p.featured,
-        inStock: p.inStock,
+        description: p.description ?? null,
       },
       create: {
-        slug: p.id,
+        slug: p.slug,
         name: p.name,
-        displayName: p.displayName,
         category: p.category,
         categoryLabel: p.categoryLabel,
-        dosage: p.dosage,
-        sku: p.sku,
-        price: p.price,
-        kitPrice: p.kitPrice,
-        capColor: p.capColor,
         featured: p.featured,
-        inStock: p.inStock,
+        description: p.description ?? null,
       },
     });
+
+    for (let i = 0; i < p.variants.length; i++) {
+      const v = p.variants[i];
+      await db.productVariant.upsert({
+        where: { sku: v.sku },
+        update: {
+          productId: parent.id,
+          dosage: v.dosage,
+          displayName: v.displayName,
+          price: v.price,
+          kitPrice: v.kitPrice,
+          capColor: v.capColor,
+          inStock: v.inStock,
+          stockQty: v.stockQty ?? 100,
+          sortOrder: i,
+        },
+        create: {
+          productId: parent.id,
+          dosage: v.dosage,
+          displayName: v.displayName,
+          sku: v.sku,
+          price: v.price,
+          kitPrice: v.kitPrice,
+          capColor: v.capColor,
+          inStock: v.inStock,
+          stockQty: v.stockQty ?? 100,
+          sortOrder: i,
+        },
+      });
+    }
   }
-  console.log(`✓ Seeded ${products.length} products`);
+  console.log(`✓ Seeded ${products.length} parent products and variants`);
 }
 
 async function seedCoupons() {

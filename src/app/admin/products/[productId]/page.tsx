@@ -8,7 +8,14 @@ export default async function EditProductPage({
   params: Promise<{ productId: string }>;
 }) {
   const { productId } = await params;
-  const product = await db.product.findUnique({ where: { id: productId } });
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    include: {
+      variants: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
   if (!product) notFound();
 
   return (

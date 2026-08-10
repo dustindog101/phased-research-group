@@ -1,44 +1,81 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Minus, Plus, ShoppingCart, Check, ChevronRight, FlaskConical } from "lucide-react";
-import { useCart, KIT_MULTIPLIER } from "@/hooks/useCart";
+import { useCart } from "@/hooks/useCart";
 import { VialSVG } from "@/components/store/VialSVG";
 import { ProductImage, parseBlobImages } from "@/components/store/product-image";
 import { formatPrice, DEFAULT_PRODUCT_DESCRIPTION } from "@/lib/constants";
-import type { Product } from "@prisma/client";
+import type { ProductWithVariants } from "@/lib/products";
+import type { ProductVariant } from "@prisma/client";
 import Link from "next/link";
 
 interface ProductDetailClientProps {
-  product: Product;
-  related: Product[];
+  product: ProductWithVariants;
+  related: ProductWithVariants[];
 }
 
 export function ProductDetailClient({ product, related }: ProductDetailClientProps) {
   const router = useRouter();
-  const [isKit, setIsKit] = useState(false);
+  const searchParams = useSearchParams();
+  const requestedDosage = searchParams.get("dosage")?.toLowerCase();
+
+  const variants = product.variants ?? [];
+
+  // Find initial variant based on URL query param or first available in-stock variant
+  const initialVariant =
+    variants.find((v) => v.dosage.toLowerCase() === requestedDosage) ??
+    variants.find((v) => v.inStock) ??
+    variants[0];
+
+  const [activeVariant, setActiveVariant] = useState<ProductVariant | undefined>(initialVariant);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const addItem = useCart((s) => s.addItem);
 
-  const unitPrice = isKit ? product.kitPrice / KIT_MULTIPLIER : product.price;
-  const lineTotal = isKit ? product.kitPrice * quantity : product.price * quantity;
+  // Sync dosage change with URL query parameter without full page refresh
+  const handleVariantSelect = (variant: ProductVariant) => {
+    setActiveVariant(variant);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("dosage", variant.dosage.toLowerCase());
+    router.replace(`/products/${product.slug}?${params.toString()}`, { scroll: false });
+  };
+
+  useEffect(() => {
+    if (requestedDosage) {
+      const found = variants.find((v) => v.dosage.toLowerCase() === requestedDosage);
+      if (found && found.id !== activeVariant?.id) {
+        setActiveVariant(found);
+      }
+    }
+  }, [requestedDosage, variants, activeVariant?.id]);
+
+  const currentPrice = activeVariant?.price ?? 0;
+  const inStock = activeVariant?.inStock ?? false;
+  const capColor = activeVariant?.capColor ?? "#0d9488";
+  const sku = activeVariant?.sku ?? "";
+  const coaUrl = activeVariant?.coaUrl ?? product.description;
 
   const handleAddToCart = () => {
-    addItem({
-      productId: product.id,
-      slug: product.slug,
-      name: product.name,
-      displayName: product.displayName,
-      dosage: product.dosage,
-      price: product.price,
-      capColor: product.capColor,
-      isKit,
-    }, quantity);
+    if (!activeVariant) return;
+    addItem(
+      {
+        variantId: activeVariant.id,
+        productId: product.id,
+        slug: product.slug,
+        name: product.name,
+        displayName: activeVariant.displayName,
+        dosage: activeVariant.dosage,
+        price: activeVariant.price,
+        capColor: activeVariant.capColor,
+        isKit: false,
+      },
+      quantity
+    );
     setAdded(true);
-    toast.success(`${product.displayName} (${isKit ? "5-vial kit" : "single vial"}) added to cart`);
+    toast.success(`${activeVariant.displayName} added to cart`);
     setTimeout(() => setAdded(false), 2000);
   };
 
@@ -61,28 +98,34 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
               {product.categoryLabel}
             </Link>
             <ChevronRight size={14} />
-            <span className="text-[var(--prg-text)]">{product.displayName}</span>
+            <span className="text-[var(--prg-text)]">{product.name}</span>
+            {activeVariant && (
+              <>
+                <ChevronRight size={14} />
+                <span className="text-[var(--prg-text-secondary)] font-medium">{activeVariant.dosage}</span>
+              </>
+            )}
           </nav>
         </div>
       </div>
 
       <section className="py-12">
         <div className="prg-container grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Image */}
+          {/* Image preview */}
           <div className="flex flex-col gap-4">
             <div className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-12">
               <ProductImage
                 slug={product.slug}
-                capColor={product.capColor}
-                alt={`${product.displayName} research peptide vial`}
+                capColor={capColor}
+                alt={`${product.name} ${activeVariant?.dosage ?? ""} research peptide vial`}
                 variant="detail"
                 priority
                 className="max-w-full max-h-full object-contain"
-                blobImages={parseBlobImages(product.imageKey)}
+                blobImages={parseBlobImages(activeVariant?.imageKey || product.imageKey)}
               />
             </div>
             <div className="grid grid-cols-4 gap-3">
-              {[product.capColor, "#0d9488", "#1e3a5f", "#2563eb"].map((color, i) => (
+              {[capColor, "#0d9488", "#1e3a5f", "#2563eb"].map((color, i) => (
                 <div
                   key={i}
                   className={`aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border rounded-[var(--prg-radius)] p-3 ${
@@ -102,61 +145,70 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
               className="text-[32px] font-bold uppercase tracking-[2px] mb-2"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              {product.displayName}
+              {product.name}
             </h1>
-            <p className="text-[var(--prg-text-muted)] text-sm mb-4">SKU: {product.sku}</p>
+            <p className="text-[var(--prg-text-muted)] text-sm mb-4 font-mono">SKU: {sku}</p>
 
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-[36px] font-bold text-[var(--prg-accent)]">
-                {formatPrice(isKit ? product.kitPrice : product.price)}
+                {formatPrice(currentPrice)}
               </span>
-              <span className="text-sm text-[var(--prg-text-muted)]">
-                {isKit ? "per 5-vial kit" : "per vial"}
-              </span>
+              <span className="text-sm text-[var(--prg-text-muted)]">per vial</span>
             </div>
 
-            {/* Purchase options */}
-            <div className="border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5 mb-6">
-              <label className="block text-xs font-semibold uppercase tracking-[1.5px] text-[var(--prg-text-muted)] mb-3">
-                Purchase Option
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setIsKit(false)}
-                  className={`p-4 border-2 rounded-[var(--prg-radius)] text-left transition-all ${
-                    !isKit
-                      ? "border-[var(--prg-accent)] bg-[rgba(30,58,95,0.03)]"
-                      : "border-[var(--prg-border)] hover:border-[var(--prg-border-hover)]"
-                  }`}
-                >
-                  <div className="text-sm font-semibold mb-1">Single Vial</div>
-                  <div className="text-lg font-bold text-[var(--prg-accent)]">
-                    {formatPrice(product.price)}
+            {/* Dosage variation selector (Rule: 1 dosage -> hidden; 2-4 dosages -> Pills; 5+ dosages -> Dropdown) */}
+            {variants.length > 1 && (
+              <div className="border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-5 mb-6 bg-white">
+                <label className="block text-xs font-semibold uppercase tracking-[1.5px] text-[var(--prg-text-muted)] mb-3">
+                  Dosage Variation
+                </label>
+
+                {variants.length <= 4 ? (
+                  /* 2-4 Dosages: Modern Pill Buttons */
+                  <div className="flex flex-wrap gap-2">
+                    {variants.map((v) => {
+                      const isSelected = v.id === activeVariant?.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => handleVariantSelect(v)}
+                          className={`py-3 px-5 border-2 rounded-[var(--prg-radius)] text-sm font-semibold transition-all ${
+                            isSelected
+                              ? "border-[var(--prg-accent)] bg-[rgba(30,58,95,0.05)] text-[var(--prg-accent)]"
+                              : "border-[var(--prg-border)] bg-white text-[var(--prg-text)] hover:border-[var(--prg-accent)]"
+                          } ${!v.inStock ? "opacity-50 line-through" : ""}`}
+                        >
+                          {v.dosage} {!v.inStock && "(Sold Out)"}
+                        </button>
+                      );
+                    })}
                   </div>
-                </button>
-                <button
-                  onClick={() => setIsKit(true)}
-                  className={`p-4 border-2 rounded-[var(--prg-radius)] text-left transition-all relative ${
-                    isKit
-                      ? "border-[var(--prg-accent)] bg-[rgba(30,58,95,0.03)]"
-                      : "border-[var(--prg-border)] hover:border-[var(--prg-border-hover)]"
-                  }`}
-                >
-                  <span className="absolute top-2 right-2 prg-badge prg-badge--teal text-[9px] py-0.5 px-2">
-                    Save 10%
-                  </span>
-                  <div className="text-sm font-semibold mb-1">5-Vial Kit</div>
-                  <div className="text-lg font-bold text-[var(--prg-accent)]">
-                    {formatPrice(product.kitPrice)}
-                  </div>
-                </button>
+                ) : (
+                  /* 5+ Dosages: Custom Dropdown Menu */
+                  <select
+                    value={activeVariant?.id ?? ""}
+                    onChange={(e) => {
+                      const selected = variants.find((v) => v.id === e.target.value);
+                      if (selected) handleVariantSelect(selected);
+                    }}
+                    className="w-full py-3 px-4 border-2 border-[var(--prg-border)] rounded-[var(--prg-radius)] text-sm font-semibold bg-white text-[var(--prg-text)] focus:outline-none focus:border-[var(--prg-accent)] cursor-pointer"
+                  >
+                    {variants.map((v) => (
+                      <option key={v.id} value={v.id} disabled={!v.inStock}>
+                        {v.dosage} — {formatPrice(v.price)} {v.inStock ? "(In Stock)" : "(Out of Stock)"}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Quantity + add to cart */}
             <div className="flex gap-3 mb-4">
               <div className="flex items-center border border-[var(--prg-border)] rounded-[var(--prg-radius)] overflow-hidden">
                 <button
+                  type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   className="w-12 h-12 flex items-center justify-center bg-[var(--prg-bg-alt)] hover:bg-[#e2e8f0]"
                 >
@@ -170,6 +222,7 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
                   min={1}
                 />
                 <button
+                  type="button"
                   onClick={() => setQuantity((q) => q + 1)}
                   className="w-12 h-12 flex items-center justify-center bg-[var(--prg-bg-alt)] hover:bg-[#e2e8f0]"
                 >
@@ -177,8 +230,9 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
                 </button>
               </div>
               <button
+                type="button"
                 onClick={handleAddToCart}
-                disabled={!product.inStock}
+                disabled={!inStock}
                 className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-[var(--prg-radius)] text-[13px] font-medium uppercase tracking-[2px] text-white transition-all ${
                   added
                     ? "bg-[var(--prg-success)]"
@@ -198,8 +252,9 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
               </button>
             </div>
             <button
+              type="button"
               onClick={handleBuyNow}
-              disabled={!product.inStock}
+              disabled={!inStock}
               className="w-full px-6 py-3 border-2 border-[var(--prg-accent)] text-[var(--prg-accent)] rounded-[var(--prg-radius)] text-[13px] font-medium uppercase tracking-[2px] hover:bg-[var(--prg-accent)] hover:text-white transition-all mb-6 disabled:opacity-50"
               style={{ fontFamily: "var(--font-display)" }}
             >
@@ -208,12 +263,12 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
 
             {/* Stock + description */}
             <div className="space-y-4">
-              {product.inStock ? (
-                <div className="flex items-center gap-2 text-sm text-[var(--prg-success)]">
+              {inStock ? (
+                <div className="flex items-center gap-2 text-sm text-[var(--prg-success)] font-medium">
                   <Check size={16} /> In stock — ready to ship
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-sm text-[var(--prg-danger)]">
+                <div className="flex items-center gap-2 text-sm text-[var(--prg-danger)] font-medium">
                   <FlaskConical size={16} /> Out of stock — check back soon
                 </div>
               )}
@@ -239,12 +294,12 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--prg-text-muted)]">SKU:</span>
-                  <span className="font-mono">{product.sku}</span>
+                  <span className="font-mono">{sku}</span>
                 </div>
-                {product.coaUrl && (
+                {coaUrl && (
                   <div className="flex justify-between">
                     <span className="text-[var(--prg-text-muted)]">COA:</span>
-                    <a href={product.coaUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--prg-accent)] hover:underline">
+                    <a href={coaUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--prg-accent)] hover:underline font-medium">
                       View Certificate →
                     </a>
                   </div>
@@ -257,7 +312,7 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
 
       {/* Related products */}
       {related.length > 0 && (
-        <section className="py-16 bg-[var(--prg-bg-alt)]">
+        <section className="py-16 bg-[var(--prg-bg-alt)] border-t border-[var(--prg-border)]">
           <div className="prg-container">
             <h2
               className="text-[28px] font-bold uppercase tracking-[3px] text-center mb-10"
@@ -265,20 +320,29 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
             >
               Related Products
             </h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-              {related.map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/products/${p.slug}`}
-                  className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-4 prg-card-hover"
-                >
-                  <div className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded-[var(--prg-radius)] mb-3 p-4">
-                    <VialSVG capColor={p.capColor} size={80} />
-                  </div>
-                  <div className="text-sm font-semibold mb-1">{p.displayName}</div>
-                  <div className="text-[var(--prg-accent)] font-bold">{formatPrice(p.price)}</div>
-                </Link>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {related.map((p) => {
+                const firstVar = p.variants?.[0];
+                const pCapColor = firstVar?.capColor ?? "#0d9488";
+                const pPrice = firstVar?.price ?? 0;
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/products/${p.slug}`}
+                    className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-4 prg-card-hover flex flex-col justify-between"
+                  >
+                    <div className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] rounded-[var(--prg-radius)] mb-3 p-4">
+                      <VialSVG capColor={pCapColor} size={80} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
+                        {p.name}
+                      </div>
+                      <div className="text-[var(--prg-accent)] font-bold">{formatPrice(pPrice)}</div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>

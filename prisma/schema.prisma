@@ -75,35 +75,50 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// ============ PRODUCTS ============
+// ============ PRODUCTS & VARIATIONS ============
 
 model Product {
-  id           String   @id @default(cuid())
-  slug         String   @unique
-  name         String
-  displayName  String
-  category     String   // metabolic | healing | hormone | longevity | neuro | other
-  categoryLabel String
-  dosage       String
-  sku          String   @unique
-  price        Float    // per-vial consumer price
-  kitPrice     Float    // 5-vial kit price
-  capColor     String   @default("#0d9488")
-  featured     Boolean  @default(false)
-  inStock      Boolean  @default(true)
-  stockQty     Int      @default(0)
-  description  String?
-  longDescription String? // markdown
-  coaUrl       String?
-  imageKey     String?   // Vercel Blob key
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String           @id @default(cuid())
+  slug            String           @unique // parent compound slug e.g. "bpc-157", "tirzepatide"
+  name            String           // parent name e.g. "BPC-157", "Tirzepatide"
+  category        String           // metabolic | healing | hormone | longevity | neuro | other
+  categoryLabel   String
+  description     String?
+  longDescription String?          // markdown
+  featured        Boolean          @default(false)
+  imageKey        String?          // Vercel Blob key for main parent compound image
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  orderItems   OrderItem[]
-  cartItems    CartItem[]
+  variants        ProductVariant[]
 
   @@index([category])
   @@index([featured])
+}
+
+model ProductVariant {
+  id           String      @id @default(cuid())
+  productId    String
+  dosage       String      // e.g. "5mg", "10mg", "20mg", "100mg"
+  displayName  String      // e.g. "BPC 157 5mg"
+  sku          String      @unique // e.g. "PRG-BPC157-5MG"
+  price        Float       // per-vial consumer price
+  kitPrice     Float       // 5-vial kit price (preserved in DB/admin for future kit sales)
+  capColor     String      @default("#0d9488")
+  inStock      Boolean     @default(true)
+  stockQty     Int         @default(0)
+  coaUrl       String?
+  imageKey     String?     // optional variant-specific Vercel Blob key
+  sortOrder    Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+
+  @@index([productId])
+  @@index([sku])
   @@index([inStock])
 }
 
@@ -119,17 +134,18 @@ model Cart {
 }
 
 model CartItem {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   cartId    String
-  productId String
-  quantity  Int      @default(1)
-  isKit     Boolean  @default(false) // true = 5-vial kit, false = single vial
-  createdAt DateTime @default(now())
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id])
+  variantId String
+  quantity  Int            @default(1)
+  isKit     Boolean        @default(false) // true = 5-vial kit, false = single vial
+  createdAt DateTime       @default(now())
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
 
-  @@unique([cartId, productId, isKit])
+  @@unique([cartId, variantId, isKit])
   @@index([cartId])
+  @@index([variantId])
 }
 
 // ============ ORDERS ============
@@ -184,21 +200,22 @@ model Order {
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   orderId   String
-  productId String
-  name      String   // snapshot of product name
-  dosage    String   // snapshot
-  sku       String   // snapshot
-  price     Float    // snapshot of unit price
+  variantId String?
+  name      String          // snapshot of product name
+  dosage    String          // snapshot
+  sku       String          // snapshot
+  price     Float           // snapshot of unit price
   quantity  Int
-  isKit     Boolean  @default(false)
-  createdAt DateTime @default(now())
+  isKit     Boolean         @default(false)
+  createdAt DateTime        @default(now())
 
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id])
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
   @@index([orderId])
+  @@index([variantId])
 }
 
 // ============ ADDRESSES ============
