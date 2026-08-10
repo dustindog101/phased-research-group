@@ -25,7 +25,7 @@ export default async function HomePage() {
             className="text-center mb-4 text-[clamp(32px,5vw,52px)] font-bold uppercase tracking-[3px]"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Phased Research Group
+            Phase Research Group
           </h1>
           <p className="text-center text-[17px] text-white/80 max-w-[600px] mx-auto mb-12 leading-[1.7]">
             Research peptides with lot-specific COAs. Every batch tested by an independent lab.

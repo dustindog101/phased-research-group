@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FlaskConical, ShieldCheck, Beaker, FileCheck, Truck, Award } from "lucide-react";
 
 export const metadata = {
-  title: "About Phased Research Group",
+  title: "About Phase Research Group",
   description: "Why we started PRG and what we do differently.",
 };
 
@@ -13,7 +13,7 @@ export default function AboutPage() {
         <div className="prg-container max-w-[800px]">
           <span className="prg-eyebrow">Our Story</span>
           <h1 className="text-[clamp(32px,4vw,42px)] font-bold uppercase tracking-[2px] mb-3 mt-2" style={{ fontFamily: "var(--font-display)" }}>
-            About Phased Research Group
+            About Phase Research Group
           </h1>
           <p className="text-[17px] text-[var(--prg-text-secondary)] leading-[1.7] max-w-[600px]">
             We sell research peptides. We test every lot. We publish the COA before you buy.
@@ -97,7 +97,7 @@ export default function AboutPage() {
             </div>
             <ul className="space-y-3 mb-5">
               {[
-                "Phased Research Group is a chemical supplier, not a compounding pharmacy under 503A of the FD&C Act.",
+                "Phase Research Group is a chemical supplier, not a compounding pharmacy under 503A of the FD&C Act.",
                 "We are not an outsourcing facility under 503B.",
                 "All products are for laboratory research use only. Not for human consumption, diagnostic, or therapeutic use.",
                 "Purchasers must be 21+ and qualified research personnel.",

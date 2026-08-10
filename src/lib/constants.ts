@@ -1,5 +1,5 @@
 /**
- * Phased Research Group — Site-wide constants
+ * Phase Research Group — Site-wide constants
  * Ported from the original static site's js/app.js
  */
 
@@ -50,11 +50,11 @@ export function formatPrice(n: number): string {
 
 // ============ SITE METADATA ============
 export const SITE = {
-  name: "Phased Research Group",
+  name: "Phase Research Group",
   shortName: "PRG",
   tagline: "Premium Research Peptides — Laboratory Grade, Independently Verified",
-  email: "support@phasedresearchgroup.com",
-  url: "https://phasedresearchgroup.com",
+  email: "support@phaseresearch.org",
+  url: "https://phaseresearch.org",
   description:
     "Premium research peptides supplied exclusively for lawful laboratory research use by qualified personnel. Every batch is third-party tested with Certificates of Analysis available.",
 };

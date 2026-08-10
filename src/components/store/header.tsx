@@ -75,7 +75,7 @@ export function Header() {
                   className="text-[16px] md:text-[18px] font-semibold uppercase tracking-[2px] text-[var(--prg-text)]"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
-                  Phased Research
+                  Phase Research
                 </div>
                 <div className="text-[9px] md:text-[10px] font-normal tracking-[3px] text-[var(--prg-text-muted)]">
                   Group

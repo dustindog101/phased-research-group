@@ -1,4 +1,4 @@
-# Phased Research Group
+# Phase Research Group
 
 Premium research peptides e-commerce platform with self-hosted crypto payment gateway.
 
@@ -74,7 +74,7 @@ bun run dev
 Visit http://localhost:3000
 
 ### 5. Default admin login
-- Email: `admin@phasedresearchgroup.com`
+- Email: `admin@phaseresearch.org`
 - Password: `admin12345` (change immediately!)
 
 ## Production Deployment (Vercel + Neon)
@@ -176,4 +176,4 @@ scripts/
 
 ## License
 
-Proprietary — Phased Research Group. All rights reserved.
+Proprietary — Phase Research Group. All rights reserved.

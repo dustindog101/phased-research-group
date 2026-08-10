@@ -3,7 +3,7 @@ import { Truck, Package, Clock, MapPin, AlertCircle } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Shipping Policy",
-  description: "Shipping information for Phased Research Group orders.",
+  description: "Shipping information for Phase Research Group orders.",
 };
 
 export default function ShippingPage() {
@@ -156,7 +156,7 @@ export default function ShippingPage() {
             </h2>
             <p>
               If your package is delayed, lost, or damaged, contact us at{" "}
-              <a href="mailto:support@phasedresearchgroup.com" className="text-[var(--prg-accent)] underline">support@phasedresearchgroup.com</a>{" "}
+              <a href="mailto:support@phaseresearch.org" className="text-[var(--prg-accent)] underline">support@phaseresearch.org</a>{" "}
               within 48 hours of the expected delivery date. Include your order number and tracking
               information. We will work with the carrier to resolve the issue.
             </p>

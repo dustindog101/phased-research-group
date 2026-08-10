@@ -3,7 +3,7 @@ import { AlertCircle, RotateCcw, ShieldCheck, Clock } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Refund Policy",
-  description: "Refund and return policy for Phased Research Group.",
+  description: "Refund and return policy for Phase Research Group.",
 };
 
 export default function RefundPage() {
@@ -60,7 +60,7 @@ export default function RefundPage() {
             </ul>
             <p className="mt-3">
               To request a return, email{" "}
-              <a href="mailto:support@phasedresearchgroup.com" className="text-[var(--prg-accent)] underline">support@phasedresearchgroup.com</a>{" "}
+              <a href="mailto:support@phaseresearch.org" className="text-[var(--prg-accent)] underline">support@phaseresearch.org</a>{" "}
               with your order number and reason for return.
             </p>
           </section>
@@ -164,7 +164,7 @@ export default function RefundPage() {
               8. How to Request a Refund
             </h2>
             <p className="mb-3">Email{" "}
-              <a href="mailto:support@phasedresearchgroup.com" className="text-[var(--prg-accent)] underline">support@phasedresearchgroup.com</a>{" "}
+              <a href="mailto:support@phaseresearch.org" className="text-[var(--prg-accent)] underline">support@phaseresearch.org</a>{" "}
               with:
             </p>
             <ul className="list-disc pl-6 space-y-2">

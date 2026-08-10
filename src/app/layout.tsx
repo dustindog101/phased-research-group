@@ -25,26 +25,26 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: {
-    default: "Phased Research Group — Premium Research Peptides",
-    template: "%s | Phased Research Group",
+    default: "Phase Research Group — Premium Research Peptides",
+    template: "%s | Phase Research Group",
   },
   description:
     "Premium research peptides supplied exclusively for lawful laboratory research use by qualified personnel. Every batch is third-party tested with Certificates of Analysis available.",
   keywords: [
     "research peptides",
     "laboratory supplies",
-    "phased research group",
+    "phase research group",
     "peptide synthesis",
     "research chemicals",
     "certificate of analysis",
   ],
-  authors: [{ name: "Phased Research Group" }],
+  authors: [{ name: "Phase Research Group" }],
   robots: {
     index: true,
     follow: true,
   },
   openGraph: {
-    title: "Phased Research Group — Premium Research Peptides",
+    title: "Phase Research Group — Premium Research Peptides",
     description: "Laboratory-grade research peptides. Third-party tested. COA available.",
     type: "website",
   },

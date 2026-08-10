@@ -113,7 +113,7 @@ async function seedPaymentSettings() {
 
 async function seedAdminUser() {
   console.log("Seeding default admin user...");
-  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@phasedresearchgroup.com";
+  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@phaseresearch.org";
   const adminPassword = process.env.ADMIN_PASSWORD ?? "admin12345";
 
   const existing = await db.user.findUnique({ where: { email: adminEmail } });
@@ -137,7 +137,7 @@ async function seedAdminUser() {
 }
 
 async function main() {
-  console.log("=== Phased Research Group — Database Seed ===\n");
+  console.log("=== Phase Research Group — Database Seed ===\n");
   await seedProducts();
   await seedCoupons();
   await seedPaymentSettings();

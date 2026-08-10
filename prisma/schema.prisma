@@ -1,4 +1,4 @@
-// Prisma schema for Phased Research Group
+// Prisma schema for Phase Research Group
 // Production: Neon Postgres (serverless, free tier 0.5GB)
 // Local dev: SQLite (set DATABASE_URL="file:./dev.db")
 //
