@@ -25,14 +25,16 @@ interface CartState {
   items: CartLineItem[];
   couponCode: string | null;
   addItem: (item: Omit<CartLineItem, "quantity">, quantity?: number) => void;
-  removeItem: (variantId: string) => void;
-  updateQuantity: (variantId: string, quantity: number) => void;
+  removeItem: (variantId: string, isKit?: boolean) => void;
+  updateQuantity: (variantId: string, isKit: boolean | number, quantity?: number) => void;
   clear: () => void;
   applyCoupon: (code: string) => void;
   removeCoupon: () => void;
   subtotal: () => number;
   itemCount: () => number;
 }
+
+export const KIT_MULTIPLIER = 5;
 
 export const useCart = create<CartState>()(
   persist(
@@ -42,7 +44,9 @@ export const useCart = create<CartState>()(
 
       addItem: (item, quantity = 1) => {
         const items = [...get().items];
-        const idx = items.findIndex((i) => i.variantId === item.variantId);
+        const idx = items.findIndex(
+          (i) => (i.variantId && i.variantId === item.variantId) || (i.productId === item.productId && i.isKit === item.isKit)
+        );
         if (idx >= 0) {
           items[idx] = { ...items[idx], quantity: items[idx].quantity + quantity };
         } else {
@@ -51,19 +55,34 @@ export const useCart = create<CartState>()(
         set({ items });
       },
 
-      removeItem: (variantId) => {
+      removeItem: (variantIdOrProductId, _isKit) => {
         set({
-          items: get().items.filter((i) => i.variantId !== variantId),
+          items: get().items.filter(
+            (i) => i.variantId !== variantIdOrProductId && i.productId !== variantIdOrProductId
+          ),
         });
       },
 
-      updateQuantity: (variantId, quantity) => {
+      updateQuantity: (variantIdOrProductId, isKitOrQty, maybeQty) => {
+        let quantity: number;
+        let isKit = false;
+
+        if (typeof isKitOrQty === "number") {
+          quantity = isKitOrQty;
+        } else {
+          isKit = isKitOrQty;
+          quantity = maybeQty ?? 1;
+        }
+
         if (quantity <= 0) {
-          get().removeItem(variantId);
+          get().removeItem(variantIdOrProductId, isKit);
           return;
         }
+
         const items = get().items.map((i) =>
-          i.variantId === variantId ? { ...i, quantity } : i
+          (i.variantId && i.variantId === variantIdOrProductId) || (i.productId === variantIdOrProductId && i.isKit === isKit)
+            ? { ...i, quantity }
+            : i
         );
         set({ items });
       },
@@ -74,7 +93,10 @@ export const useCart = create<CartState>()(
       removeCoupon: () => set({ couponCode: null }),
 
       subtotal: () => {
-        return get().items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        return get().items.reduce((sum, i) => {
+          const unitPrice = i.isKit ? i.price * KIT_MULTIPLIER : i.price;
+          return sum + unitPrice * i.quantity;
+        }, 0);
       },
 
       itemCount: () => {
