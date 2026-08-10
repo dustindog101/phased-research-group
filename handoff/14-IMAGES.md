@@ -21,12 +21,23 @@ If no image exists for a product, the `ProductImage` component falls back to the
 
 ## Adding a Product Image
 
-### Step 1: Get the Image
-- Customer sends an image (PNG, WebP, JPG)
-- Square or near-square works best (1:1 aspect ratio)
-- Minimum 800×800px recommended (larger is fine, script will resize)
+### Option 1: Admin Panel Direct Drag & Drop (Recommended)
+Admins can upload product images directly from `/admin/products/[productId]` via the `ImageUpload` component.
 
-### Step 2: Optimize the Image
+#### Supported Drag & Drop Sources:
+1. **Desktop Files**: Drag PNG, JPG, WebP, GIF files from Finder/Explorer.
+2. **Cross-Site / Google Images**: Drag images directly from external websites, Google Images, or other browser tabs.
+3. **Base64 Data URLs**: Drag directly from Figma, Photoshop, or web tools.
+4. **Clipboard Paste (`Cmd+V` / `Ctrl+V`)**: Copy an image or screenshot anywhere and paste it directly on the product edit page.
+
+#### Cross-Site Proxy (`/api/admin/proxy-image`):
+Because browsers block reading canvas data from cross-origin remote URLs (CORS security restriction), remote web image URLs are securely fetched server-to-server via `/api/admin/proxy-image?url=...`.
+- Requires ADMIN authentication.
+- Implements SSRF protections (blocks internal IP ranges & non-HTTP protocols).
+- Enforces 10MB maximum download limit and 8-second request timeout.
+- Serves responses with `Cache-Control: private, max-age=3600` to prevent redundant serverless function executions.
+
+### Option 2: Local CLI Optimization Script
 ```bash
 bun run scripts/optimize-product-image.ts <path-to-image> <product-slug>
 ```
@@ -36,34 +47,7 @@ Example:
 bun run scripts/optimize-product-image.ts ~/Downloads/retatrutide.png prg-retatrutide-10mg
 ```
 
-This generates 5 sizes in WebP format at `public/products/{slug}/`.
-
-### Step 3: For Multiple Variants (Same Image)
-If multiple products share the same image (e.g., different dosages of same peptide):
-```bash
-# Optimize for the first variant
-bun run scripts/optimize-product-image.ts retatrutide.png prg-retatrutide-10mg
-
-# Copy to other variants
-cp -r public/products/prg-retatrutide-10mg public/products/prg-retatrutide-5mg
-cp -r public/products/prg-retatrutide-10mg public/products/prg-retatrutide-15mg
-# etc.
-```
-
-### Step 4: Commit and Push
-```bash
-git add public/products/
-git commit -m "feat: add product images for retatrutide variants"
-git push
-```
-
-The images auto-appear on:
-- Shop page (product cards)
-- Product detail page (main image)
-- Product list page (table thumbnails)
-- Cart page (item thumbnails)
-- Checkout page (order summary thumbnails)
-- Admin products page (preview)
+This generates 5 sizes in WebP/PNG format at `public/products/{slug}/`.
 
 ## Image Component
 
@@ -92,43 +76,9 @@ import { ProductImage } from "@/components/store/product-image";
 ### Priority
 Set `priority={true}` for images above the fold (e.g., product detail main image). This tells Next.js to preload them, improving LCP (Largest Contentful Paint).
 
-## Image Optimization Details
-
-### Why WebP?
-- 25-35% smaller than PNG at equivalent quality
-- Supported by all modern browsers (97%+)
-- Better than JPEG for images with transparency
-
-### Why Not AVIF?
-We also generate AVIF files (in the script), but the `ProductImage` component currently only references WebP. To enable AVIF:
-1. Update `ProductImage` to use `next/image` with `formats: ['image/avif', 'image/webp']`
-2. Next.js will auto-negotiate the best format based on `Accept` header
-
-### Why Multiple Sizes?
-Responsive loading. A mobile user doesn't need to download the 1200px image. The `sizes` prop on `next/image` tells the browser which size to fetch based on viewport.
-
-### Background Color
-The optimization script pads images to square with `#f8fafc` background (matches `--prg-bg-alt`). This ensures consistent display in the square product card containers.
-
 ## Current Image Status
 
 | Product | Has Image? | Notes |
 |---|---|---|
 | Retatrutide (all 6 dosages) | ✅ Yes | 5mg, 10mg, 15mg, 20mg, 30mg, 60mg |
-| All other products | ❌ No | Using SVG vial placeholder |
-
-The user will send images for other products. When received, run the optimization script + commit.
-
-## Image Best Practices
-
-1. **Square images**: 1:1 aspect ratio works best with our card layout
-2. **White or light background**: Matches the card background
-3. **Product centered**: The vial/product should be centered in the frame
-4. **Minimum 800×800**: Smaller images will look pixelated on retina displays
-5. **No text overlay**: Let the image be the product, not a marketing graphic
-6. **Consistent lighting/style**: All product images should look like they belong to the same catalog
-7. **File naming**: The script handles this — output is always `{size}.webp`
-
-## Admin Image Upload (Not Yet Built)
-
-Currently, images are added via the file system + optimization script. A future feature could let admins upload images directly in the product form, using Vercel Blob storage. See `07-FEATURES-PLANNED.md`.
+| All other products | ❌ No | Using SVG vial placeholder (Uploadable via Admin Panel) |
