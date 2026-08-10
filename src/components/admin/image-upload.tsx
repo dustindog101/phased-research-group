@@ -64,24 +64,27 @@ async function fetchImageAsBlob(url: string): Promise<Blob> {
 }
 
 /**
- * Progressive step-down image resizing using HTML5 Canvas with high-quality Lanczos-style smoothing.
- * Halves resolution step-by-step to prevent single-step downscaling blur on high-res originals.
+ * Progressive step-down image resizing using HTML5 Canvas with high-quality smoothing & 100% alpha transparency preservation.
+ * Guarantees zero black background artifacts on transparent PNGs/WebPs.
  */
-async function resizeImage(source: File | Blob | string, targetWidth: number, sizeName: string): Promise<Blob> {
+async function resizeImage(source: File | Blob | string, targetWidth: number): Promise<Blob> {
   const img = await loadImage(source);
 
-  // Create canvas for multi-step progressive downsampling
+  // Initial offscreen canvas
   let currentCanvas = document.createElement("canvas");
   currentCanvas.width = img.width;
   currentCanvas.height = img.height;
-  let currentCtx = currentCanvas.getContext("2d");
+  let currentCtx = currentCanvas.getContext("2d", { alpha: true });
   if (!currentCtx) throw new Error("Canvas context failed");
 
+  // Explicitly clear canvas to transparent rgba(0,0,0,0)
+  currentCtx.clearRect(0, 0, img.width, img.height);
   currentCtx.imageSmoothingEnabled = true;
   currentCtx.imageSmoothingQuality = "high";
+  currentCtx.globalCompositeOperation = "source-over";
   currentCtx.drawImage(img, 0, 0);
 
-  // Step-down halving loop for smooth downsampling without aliasing
+  // Progressive step-down halving loop for smooth downsampling preserving alpha channels
   const maxDim = Math.max(img.width, img.height);
   if (maxDim > targetWidth) {
     let curW = img.width;
@@ -94,11 +97,13 @@ async function resizeImage(source: File | Blob | string, targetWidth: number, si
       const nextCanvas = document.createElement("canvas");
       nextCanvas.width = curW;
       nextCanvas.height = curH;
-      const nextCtx = nextCanvas.getContext("2d");
+      const nextCtx = nextCanvas.getContext("2d", { alpha: true });
       if (!nextCtx) break;
 
+      nextCtx.clearRect(0, 0, curW, curH);
       nextCtx.imageSmoothingEnabled = true;
       nextCtx.imageSmoothingQuality = "high";
+      nextCtx.globalCompositeOperation = "source-over";
       nextCtx.drawImage(currentCanvas, 0, 0, currentCanvas.width, currentCanvas.height, 0, 0, curW, curH);
 
       currentCanvas = nextCanvas;
@@ -109,11 +114,13 @@ async function resizeImage(source: File | Blob | string, targetWidth: number, si
   const finalCanvas = document.createElement("canvas");
   finalCanvas.width = targetWidth;
   finalCanvas.height = targetWidth;
-  const finalCtx = finalCanvas.getContext("2d");
+  const finalCtx = finalCanvas.getContext("2d", { alpha: true });
   if (!finalCtx) throw new Error("Final canvas failed");
 
+  finalCtx.clearRect(0, 0, targetWidth, targetWidth);
   finalCtx.imageSmoothingEnabled = true;
   finalCtx.imageSmoothingQuality = "high";
+  finalCtx.globalCompositeOperation = "source-over";
 
   const scale = Math.min(targetWidth / currentCanvas.width, targetWidth / currentCanvas.height);
   const drawWidth = currentCanvas.width * scale;
@@ -123,19 +130,14 @@ async function resizeImage(source: File | Blob | string, targetWidth: number, si
 
   finalCtx.drawImage(currentCanvas, 0, 0, currentCanvas.width, currentCanvas.height, x, y, drawWidth, drawHeight);
 
-  // PNG for large sizes (lossless), WebP 95% for smaller sizes
-  const usePNG = sizeName === "lg" || sizeName === "xl" || sizeName === "md";
-  const mimeType = usePNG ? "image/png" : "image/webp";
-  const quality = usePNG ? undefined : 0.95;
-
+  // Always use PNG format to guarantee 100% alpha transparency preservation across all browsers
   return new Promise((resolve, reject) => {
     finalCanvas.toBlob(
       (blob) => {
         if (blob) resolve(blob);
         else reject(new Error("Blob creation failed"));
       },
-      mimeType,
-      quality
+      "image/png"
     );
   });
 }
@@ -210,14 +212,13 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
         toast.info("Optimizing high-resolution image...");
         const blobs: Record<string, Blob> = {};
         for (const size of SIZES) {
-          const blob = await resizeImage(imageBlob, size.width, size.name);
+          const blob = await resizeImage(imageBlob, size.width);
           blobs[size.name] = blob;
         }
 
         const formData = new FormData();
         for (const [name, blob] of Object.entries(blobs)) {
-          const ext = blob.type === "image/png" ? "png" : "webp";
-          formData.append(name, blob, `${name}.${ext}`);
+          formData.append(name, blob, `${name}.png`);
         }
 
         const res = await fetch(`/api/admin/products/${productId}/image`, {
@@ -499,7 +500,7 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       </div>
 
       <p className="text-[10px] text-[var(--prg-text-muted)] mt-3 leading-relaxed text-center">
-        Drag &amp; drop, paste (Cmd+V), or click to upload. High-resolution Retina quality. Max 15MB.
+        Drag &amp; drop, paste (Cmd+V), or click to upload. High-resolution Retina quality. Transparent PNG alpha preserved. Max 15MB.
       </p>
     </div>
   );
