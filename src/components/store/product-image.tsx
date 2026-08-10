@@ -16,7 +16,7 @@ interface ProductImageProps {
 }
 
 /**
- * ProductImage — shows optimized product photo when available, falls back to SVG vial.
+ * ProductImage — shows high-resolution Retina product photo when available, falls back to SVG vial.
  *
  * Image sources (in priority order):
  * 1. blobImages (from Vercel Blob, uploaded via admin) — uses "blob:" prefix in product.imageKey
@@ -24,11 +24,12 @@ interface ProductImageProps {
  * 3. SVG vial fallback
  */
 
+// High-resolution Retina density source mapping (provides 2x - 4x pixel density for tack-sharp displays)
 const SIZE_MAP = {
-  thumb: { width: 80, height: 80, src: "sm" },
-  table: { width: 40, height: 40, src: "thumb" },
-  card: { width: 200, height: 200, src: "sm" },
-  detail: { width: 400, height: 400, src: "md" },
+  thumb: { width: 80, height: 80, src: "sm" }, // 400px source
+  table: { width: 40, height: 40, src: "thumb" }, // 160px source
+  card: { width: 200, height: 200, src: "md" }, // 800px source (Retina 4x crisp)
+  detail: { width: 400, height: 400, src: "lg" }, // 1200px source (Retina 3x crisp)
 } as const;
 
 export function ProductImage({
@@ -61,8 +62,8 @@ export function ProductImage({
       className={className}
       priority={priority}
       onError={() => setErrored(true)}
-      sizes={variant === "detail" ? "(max-width: 768px) 100vw, 400px" : `${config.width}px`}
-      unoptimized={!!blobImages} // Blob URLs are already optimized
+      sizes={variant === "detail" ? "(max-width: 768px) 100vw, 800px" : `${config.width * 2}px`}
+      unoptimized={!!blobImages} // Blob URLs are already optimized at high resolution
     />
   );
 }

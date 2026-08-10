@@ -14,12 +14,13 @@ interface ImageUploadProps {
   onImageChange?: (imageKey: string | null) => void;
 }
 
+// High-resolution Retina size targets (2x - 3x pixel density for tack-sharp displays)
 const SIZES = [
-  { name: "thumb", width: 80 },
-  { name: "sm", width: 200 },
-  { name: "md", width: 400 },
-  { name: "lg", width: 800 },
-  { name: "xl", width: 1200 },
+  { name: "thumb", width: 160 },
+  { name: "sm", width: 400 },
+  { name: "md", width: 800 },
+  { name: "lg", width: 1200 },
+  { name: "xl", width: 1600 },
 ];
 
 /** Convert base64 data URL to Blob directly without network */
@@ -63,36 +64,75 @@ async function fetchImageAsBlob(url: string): Promise<Blob> {
 }
 
 /**
- * Resize an image to a specific size using Canvas, return as Blob.
- * Uses PNG for large sizes (lossless, crisp text) and WebP for thumbnails (smaller).
- * Preserves transparency (no background fill) so PNGs with alpha look clean.
+ * Progressive step-down image resizing using HTML5 Canvas with high-quality Lanczos-style smoothing.
+ * Halves resolution step-by-step to prevent single-step downscaling blur on high-res originals.
  */
-async function resizeImage(source: File | Blob | string, width: number, sizeName: string): Promise<Blob> {
+async function resizeImage(source: File | Blob | string, targetWidth: number, sizeName: string): Promise<Blob> {
   const img = await loadImage(source);
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = width;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas not supported");
 
-  // Draw image scaled to fit (contain), centered preserving alpha
-  const scale = Math.min(width / img.width, width / img.height);
-  const drawWidth = img.width * scale;
-  const drawHeight = img.height * scale;
-  const x = (width - drawWidth) / 2;
-  const y = (width - drawHeight) / 2;
-  ctx.drawImage(img, x, y, drawWidth, drawHeight);
+  // Create canvas for multi-step progressive downsampling
+  let currentCanvas = document.createElement("canvas");
+  currentCanvas.width = img.width;
+  currentCanvas.height = img.height;
+  let currentCtx = currentCanvas.getContext("2d");
+  if (!currentCtx) throw new Error("Canvas context failed");
 
-  // Use PNG (lossless) for large sizes to keep text crisp, WebP for thumbnails
-  const useLossless = sizeName === "lg" || sizeName === "xl" || sizeName === "md";
-  const mimeType = useLossless ? "image/png" : "image/webp";
-  const quality = useLossless ? undefined : 0.95;
+  currentCtx.imageSmoothingEnabled = true;
+  currentCtx.imageSmoothingQuality = "high";
+  currentCtx.drawImage(img, 0, 0);
+
+  // Step-down halving loop for smooth downsampling without aliasing
+  const maxDim = Math.max(img.width, img.height);
+  if (maxDim > targetWidth) {
+    let curW = img.width;
+    let curH = img.height;
+
+    while (Math.max(curW, curH) / 2 >= targetWidth) {
+      curW = Math.floor(curW / 2);
+      curH = Math.floor(curH / 2);
+
+      const nextCanvas = document.createElement("canvas");
+      nextCanvas.width = curW;
+      nextCanvas.height = curH;
+      const nextCtx = nextCanvas.getContext("2d");
+      if (!nextCtx) break;
+
+      nextCtx.imageSmoothingEnabled = true;
+      nextCtx.imageSmoothingQuality = "high";
+      nextCtx.drawImage(currentCanvas, 0, 0, currentCanvas.width, currentCanvas.height, 0, 0, curW, curH);
+
+      currentCanvas = nextCanvas;
+    }
+  }
+
+  // Final render into square target container, centered with preserved alpha
+  const finalCanvas = document.createElement("canvas");
+  finalCanvas.width = targetWidth;
+  finalCanvas.height = targetWidth;
+  const finalCtx = finalCanvas.getContext("2d");
+  if (!finalCtx) throw new Error("Final canvas failed");
+
+  finalCtx.imageSmoothingEnabled = true;
+  finalCtx.imageSmoothingQuality = "high";
+
+  const scale = Math.min(targetWidth / currentCanvas.width, targetWidth / currentCanvas.height);
+  const drawWidth = currentCanvas.width * scale;
+  const drawHeight = currentCanvas.height * scale;
+  const x = (targetWidth - drawWidth) / 2;
+  const y = (targetWidth - drawHeight) / 2;
+
+  finalCtx.drawImage(currentCanvas, 0, 0, currentCanvas.width, currentCanvas.height, x, y, drawWidth, drawHeight);
+
+  // PNG for large sizes (lossless), WebP 95% for smaller sizes
+  const usePNG = sizeName === "lg" || sizeName === "xl" || sizeName === "md";
+  const mimeType = usePNG ? "image/png" : "image/webp";
+  const quality = usePNG ? undefined : 0.95;
 
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
+    finalCanvas.toBlob(
       (blob) => {
         if (blob) resolve(blob);
-        else reject(new Error("Failed to create blob"));
+        else reject(new Error("Blob creation failed"));
       },
       mimeType,
       quality
@@ -138,7 +178,8 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       })()
     : null;
 
-  const previewUrl = blobImages?.md ?? (currentImageKey === null ? `/products/${slug}/md.webp` : null);
+  // Use high-resolution md/lg preview URL for crisp admin preview
+  const previewUrl = blobImages?.lg ?? blobImages?.md ?? (currentImageKey === null ? `/products/${slug}/lg.webp` : null);
 
   /** Process and upload an image (from input, drop, paste, or cross-tab URL) */
   const processAndUpload = useCallback(
@@ -160,13 +201,13 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
             toast.error("Please select a valid image format (PNG, JPG, WebP, GIF)");
             return;
           }
-          if (imageBlob.size > 10 * 1024 * 1024) {
-            toast.error("Image must be under 10MB");
+          if (imageBlob.size > 15 * 1024 * 1024) {
+            toast.error("Image must be under 15MB");
             return;
           }
         }
 
-        toast.info("Optimizing image...");
+        toast.info("Optimizing high-resolution image...");
         const blobs: Record<string, Blob> = {};
         for (const size of SIZES) {
           const blob = await resizeImage(imageBlob, size.width, size.name);
@@ -190,7 +231,7 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
         const newImageKey = `blob:${JSON.stringify(data.images)}`;
         setCurrentImageKey(newImageKey);
         onImageChange?.(newImageKey);
-        toast.success("Image uploaded successfully!");
+        toast.success("High-resolution image uploaded successfully!");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Upload failed");
       } finally {
@@ -458,7 +499,7 @@ export function ImageUpload({ productId, slug, capColor, imageKey, onImageChange
       </div>
 
       <p className="text-[10px] text-[var(--prg-text-muted)] mt-3 leading-relaxed text-center">
-        Drag &amp; drop, paste (Cmd+V), or click to upload. Cross-site images supported. PNG, JPG, WebP, GIF. Max 10MB.
+        Drag &amp; drop, paste (Cmd+V), or click to upload. High-resolution Retina quality. Max 15MB.
       </p>
     </div>
   );
