@@ -131,10 +131,12 @@ async function processIntent(
         // Deduct inventory for each item
         for (const item of order.items) {
           const deductQty = item.isKit ? item.quantity * 5 : item.quantity;
-          await db.product.update({
-            where: { id: item.productId },
-            data: { stockQty: { decrement: deductQty } },
-          });
+          if (item.variantId) {
+            await db.productVariant.update({
+              where: { id: item.variantId },
+              data: { stockQty: { decrement: deductQty } },
+            });
+          }
         }
 
         // Send payment confirmation email

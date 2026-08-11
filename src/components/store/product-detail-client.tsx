@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Minus, Plus, ShoppingCart, Check, ChevronRight, FlaskConical } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
@@ -11,6 +11,7 @@ import { formatPrice, DEFAULT_PRODUCT_DESCRIPTION } from "@/lib/constants";
 import type { ProductWithVariants } from "@/lib/products";
 import type { ProductVariant } from "@prisma/client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface ProductDetailClientProps {
   product: ProductWithVariants;
@@ -35,12 +36,15 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
   const [added, setAdded] = useState(false);
   const addItem = useCart((s) => s.addItem);
 
-  // Sync dosage change with URL query parameter without full page refresh
+  // Update active variant and update browser URL bar cleanly without firing network requests
   const handleVariantSelect = (variant: ProductVariant) => {
     setActiveVariant(variant);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("dosage", variant.dosage.toLowerCase());
-    router.replace(`/products/${product.slug}?${params.toString()}`, { scroll: false });
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("dosage", variant.dosage.toLowerCase());
+      window.history.replaceState(null, "", url.toString());
+    }
   };
 
   useEffect(() => {
@@ -57,6 +61,15 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
   const capColor = activeVariant?.capColor ?? "#0d9488";
   const sku = activeVariant?.sku ?? "";
   const coaUrl = activeVariant?.coaUrl ?? product.description;
+
+  // Resolve best image key: active variant image > parent product image > any variant image
+  const resolvedImageKey =
+    activeVariant?.imageKey ||
+    product.imageKey ||
+    variants.find((v) => v.imageKey)?.imageKey ||
+    null;
+
+  const blobImages = parseBlobImages(resolvedImageKey);
 
   const handleAddToCart = () => {
     if (!activeVariant) return;
@@ -111,9 +124,9 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
 
       <section className="py-12">
         <div className="prg-container grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Image preview */}
+          {/* Image preview & thumbnails gallery */}
           <div className="flex flex-col gap-4">
-            <div className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-12">
+            <div className="aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-12 relative overflow-hidden">
               <ProductImage
                 slug={product.slug}
                 capColor={capColor}
@@ -121,21 +134,45 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
                 variant="detail"
                 priority
                 className="max-w-full max-h-full object-contain"
-                blobImages={parseBlobImages(activeVariant?.imageKey || product.imageKey)}
+                blobImages={blobImages}
               />
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              {[capColor, "#0d9488", "#1e3a5f", "#2563eb"].map((color, i) => (
-                <div
-                  key={i}
-                  className={`aspect-square flex items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border rounded-[var(--prg-radius)] p-3 ${
-                    i === 0 ? "border-[var(--prg-accent)]" : "border-[var(--prg-border)]"
-                  }`}
-                >
-                  <VialSVG capColor={color} size={50} />
-                </div>
-              ))}
-            </div>
+
+            {/* Thumbnail gallery for variants */}
+            {variants.length > 1 && (
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                {variants.map((v) => {
+                  const isSelected = v.id === activeVariant?.id;
+                  const vImageKey = v.imageKey || product.imageKey;
+                  const vBlob = parseBlobImages(vImageKey);
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => handleVariantSelect(v)}
+                      className={`aspect-square flex flex-col items-center justify-center bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border rounded-[var(--prg-radius)] p-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-[var(--prg-accent)] ring-2 ring-[var(--prg-accent)]/20"
+                          : "border-[var(--prg-border)] hover:border-[var(--prg-accent)]"
+                      }`}
+                    >
+                      <div className="w-10 h-10 flex items-center justify-center">
+                        <ProductImage
+                          slug={product.slug}
+                          capColor={v.capColor}
+                          alt={`${v.dosage}`}
+                          variant="thumb"
+                          blobImages={vBlob}
+                        />
+                      </div>
+                      <span className="text-[10px] font-semibold text-[var(--prg-text-secondary)] mt-1">
+                        {v.dosage}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Buy box */}
@@ -173,7 +210,7 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
                           key={v.id}
                           type="button"
                           onClick={() => handleVariantSelect(v)}
-                          className={`py-3 px-5 border-2 rounded-[var(--prg-radius)] text-sm font-semibold transition-all ${
+                          className={`py-3 px-5 border-2 rounded-[var(--prg-radius)] text-sm font-semibold transition-all cursor-pointer ${
                             isSelected
                               ? "border-[var(--prg-accent)] bg-[rgba(30,58,95,0.05)] text-[var(--prg-accent)]"
                               : "border-[var(--prg-border)] bg-white text-[var(--prg-text)] hover:border-[var(--prg-accent)]"

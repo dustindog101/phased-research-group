@@ -65,7 +65,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (user) {
-      setForm((f) => ({ ...f, fullName: user.name ?? f.fullName, email: user.email }));
+      setForm((f) => ({ ...f, fullName: user.name ?? f.fullName, email: user.email ?? f.email }));
     }
   }, [user]);
 

@@ -13,7 +13,8 @@ import { sendOrderConfirmation } from "@/lib/email";
 
 interface CreateOrderBody {
   items: Array<{
-    productId: string;
+    variantId?: string;
+    productId?: string;
     quantity: number;
     isKit: boolean;
   }>;
@@ -51,13 +52,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "RUO and age confirmation required" }, { status: 400 });
     }
 
-    const productIds = [...new Set(body.items.map((i) => i.productId))];
-    const products = await db.product.findMany({ where: { id: { in: productIds } } });
-    const productMap = new Map(products.map((p) => [p.id, p]));
+    const variantIds = body.items.map((i) => i.variantId).filter(Boolean) as string[];
+    const variants = await db.productVariant.findMany({
+      where: { id: { in: variantIds } },
+      include: { product: true },
+    });
+    const variantMap = new Map(variants.map((v) => [v.id, v]));
 
     let subtotal = 0;
     const orderItems: Array<{
-      productId: string;
+      variantId: string;
       name: string;
       dosage: string;
       sku: string;
@@ -67,21 +71,21 @@ export async function POST(req: NextRequest) {
     }> = [];
 
     for (const item of body.items) {
-      const product = productMap.get(item.productId);
-      if (!product) {
-        return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 400 });
+      const variant = item.variantId ? variantMap.get(item.variantId) : null;
+      if (!variant) {
+        return NextResponse.json({ error: `Selected product variant not found` }, { status: 400 });
       }
-      if (!product.inStock) {
-        return NextResponse.json({ error: `${product.displayName} is out of stock` }, { status: 400 });
+      if (!variant.inStock) {
+        return NextResponse.json({ error: `${variant.displayName} is out of stock` }, { status: 400 });
       }
-      const unitPrice = item.isKit ? product.kitPrice / 5 : product.price;
+      const unitPrice = item.isKit ? variant.kitPrice / 5 : variant.price;
       const lineTotal = unitPrice * item.quantity;
       subtotal += lineTotal;
       orderItems.push({
-        productId: product.id,
-        name: product.name,
-        dosage: product.dosage,
-        sku: product.sku,
+        variantId: variant.id,
+        name: variant.product.name,
+        dosage: variant.dosage,
+        sku: variant.sku,
         price: unitPrice,
         quantity: item.quantity,
         isKit: item.isKit,

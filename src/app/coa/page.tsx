@@ -8,10 +8,10 @@ export const metadata = {
 };
 
 export default async function CoaPage() {
-  const products = await db.product.findMany({
+  const variants = await db.productVariant.findMany({
     where: { coaUrl: { not: null } },
-    orderBy: { name: "asc" },
-    select: { id: true, displayName: true, dosage: true, sku: true, coaUrl: true, categoryLabel: true },
+    orderBy: { displayName: "asc" },
+    include: { product: true },
   });
 
   return (
@@ -71,7 +71,7 @@ export default async function CoaPage() {
             Available COAs
           </h2>
 
-          {products.length === 0 ? (
+          {variants.length === 0 ? (
             <div className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-8 text-center">
               <FileCheck size={40} className="mx-auto mb-3 text-[var(--prg-text-muted)] opacity-40" />
               <p className="text-sm text-[var(--prg-text-muted)]">
@@ -81,13 +81,13 @@ export default async function CoaPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {products.map((p) => (
-                <div key={p.id} className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-6 prg-card-hover">
-                  <h3 className="text-[15px] font-semibold mb-2">{p.displayName}</h3>
-                  <p className="text-[13px] text-[var(--prg-text-muted)] mb-3">{p.categoryLabel}</p>
-                  <p className="text-xs font-mono text-[var(--prg-text-muted)] mb-4">{p.sku}</p>
+              {variants.map((v) => (
+                <div key={v.id} className="bg-white border border-[var(--prg-border)] rounded-[var(--prg-radius-lg)] p-6 prg-card-hover">
+                  <h3 className="text-[15px] font-semibold mb-2">{v.displayName}</h3>
+                  <p className="text-[13px] text-[var(--prg-text-muted)] mb-3">{v.product.categoryLabel}</p>
+                  <p className="text-xs font-mono text-[var(--prg-text-muted)] mb-4">{v.sku}</p>
                   <a
-                    href={p.coaUrl ?? "#"}
+                    href={v.coaUrl ?? "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-[13px] text-[var(--prg-accent)] font-medium hover:underline"

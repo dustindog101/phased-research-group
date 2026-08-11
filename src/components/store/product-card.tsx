@@ -20,6 +20,13 @@ export function ProductCard({ product }: ProductCardProps) {
   const activeVariant = variants.find((v) => v.inStock) ?? variants[0];
   const capColor = activeVariant?.capColor ?? "#0d9488";
 
+  // Resolve best image key: parent image > active variant image > any variant image
+  const cardImageKey =
+    product.imageKey ||
+    activeVariant?.imageKey ||
+    variants.find((v) => v.imageKey)?.imageKey ||
+    null;
+
   // Calculate single vial price range across variants
   const prices = variants.map((v) => v.price).filter(Boolean);
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
@@ -64,7 +71,7 @@ export function ProductCard({ product }: ProductCardProps) {
           alt={`${product.name} research peptide`}
           variant="card"
           className="w-4/5 max-w-[140px] h-auto object-contain"
-          blobImages={parseBlobImages(product.imageKey)}
+          blobImages={parseBlobImages(cardImageKey)}
         />
         {variants.length > 1 && (
           <span className="absolute top-3 right-3 bg-[var(--prg-accent)] text-white text-[10px] font-semibold uppercase tracking-[0.5px] px-2 py-0.5 rounded-[var(--prg-radius)]">

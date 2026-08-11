@@ -3,14 +3,13 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "@/hooks/useCart";
-import { VialThumb } from "@/components/store/VialSVG";
 import { ProductImage, parseBlobImages } from "@/components/store/product-image";
 import { formatPrice, CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 import { Search, Check } from "lucide-react";
-import type { Product } from "@prisma/client";
+import type { ProductWithVariants } from "@/lib/products";
 
-export default function ProductListClient({ products }: { products: Product[] }) {
+export default function ProductListClient({ products }: { products: ProductWithVariants[] }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
@@ -24,12 +23,17 @@ export default function ProductListClient({ products }: { products: Product[] })
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          p.displayName.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q)
+          p.categoryLabel.toLowerCase().includes(q) ||
+          (p.variants ?? []).some(
+            (v) =>
+              v.dosage.toLowerCase().includes(q) ||
+              v.displayName.toLowerCase().includes(q) ||
+              v.sku.toLowerCase().includes(q)
+          )
       );
     }
     // Group by category
-    const grouped: Record<string, Product[]> = {};
+    const grouped: Record<string, ProductWithVariants[]> = {};
     for (const p of list) {
       if (!grouped[p.category]) grouped[p.category] = [];
       grouped[p.category].push(p);
@@ -37,19 +41,23 @@ export default function ProductListClient({ products }: { products: Product[] })
     return grouped;
   }, [products, category, query]);
 
-  const handleAdd = (product: Product) => {
+  const handleAdd = (product: ProductWithVariants) => {
+    const firstInStock = product.variants?.find((v) => v.inStock) ?? product.variants?.[0];
+    if (!firstInStock) return;
+
     addItem({
+      variantId: firstInStock.id,
       productId: product.id,
       slug: product.slug,
       name: product.name,
-      displayName: product.displayName,
-      dosage: product.dosage,
-      price: product.price,
-      capColor: product.capColor,
+      displayName: firstInStock.displayName,
+      dosage: firstInStock.dosage,
+      price: firstInStock.price,
+      capColor: firstInStock.capColor,
       isKit: false,
     });
     setAddedIds((s) => new Set(s).add(product.id));
-    toast.success(`${product.displayName} added to cart`);
+    toast.success(`${firstInStock.displayName} added to cart`);
     setTimeout(() => {
       setAddedIds((s) => {
         const next = new Set(s);
@@ -111,7 +119,7 @@ export default function ProductListClient({ products }: { products: Product[] })
             ))}
           </div>
           <span className="text-xs text-[var(--prg-text-muted)] whitespace-nowrap">
-            {totalCount} product{totalCount !== 1 ? "s" : ""}
+            {totalCount} compound{totalCount !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -125,16 +133,10 @@ export default function ProductListClient({ products }: { products: Product[] })
                     Product
                   </th>
                   <th className="text-left py-3 px-4 text-xs uppercase tracking-[1.2px] text-[var(--prg-text-muted)]" style={{ fontFamily: "var(--font-display)" }}>
-                    Dosage
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs uppercase tracking-[1.2px] text-[var(--prg-text-muted)]" style={{ fontFamily: "var(--font-display)" }}>
-                    SKU
+                    Dosage Variations
                   </th>
                   <th className="text-right py-3 px-4 text-xs uppercase tracking-[1.2px] text-[var(--prg-text-muted)]" style={{ fontFamily: "var(--font-display)" }}>
-                    Price
-                  </th>
-                  <th className="text-right py-3 px-4 text-xs uppercase tracking-[1.2px] text-[var(--prg-text-muted)]" style={{ fontFamily: "var(--font-display)" }}>
-                    Kit Price
+                    Price Range
                   </th>
                   <th className="py-3 px-4"></th>
                 </tr>
@@ -145,7 +147,7 @@ export default function ProductListClient({ products }: { products: Product[] })
                 ))}
                 {totalCount === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-[var(--prg-text-muted)]">
+                    <td colSpan={4} className="py-12 text-center text-[var(--prg-text-muted)]">
                       No products match your search
                     </td>
                   </tr>
@@ -166,15 +168,15 @@ function CategoryGroup({
   addedIds,
 }: {
   catId: string;
-  products: Product[];
-  onAdd: (p: Product) => void;
+  products: ProductWithVariants[];
+  onAdd: (p: ProductWithVariants) => void;
   addedIds: Set<string>;
 }) {
   const cat = CATEGORIES.find((c) => c.id === catId);
   return (
     <>
       <tr className="bg-[var(--prg-bg-elevated)] border-y border-[var(--prg-border)]">
-        <td colSpan={6} className="py-3.5 px-4">
+        <td colSpan={4} className="py-3.5 px-4">
           <span className="font-semibold uppercase tracking-[1px] text-[14px]" style={{ fontFamily: "var(--font-display)" }}>
             {cat?.label ?? catId}
           </span>
@@ -183,56 +185,70 @@ function CategoryGroup({
           </span>
         </td>
       </tr>
-      {products.map((p) => (
-        <tr key={p.id} className="border-b border-[#f1f5f9] hover:bg-[var(--prg-bg-alt)]">
-          <td className="py-3 px-4">
-            <div className="flex items-center gap-3">
-              <Link href={`/products/${p.slug}`} className="shrink-0">
-                <ProductImage
-                  slug={p.slug}
-                  capColor={p.capColor}
-                  alt={`${p.displayName} research peptide`}
-                  variant="table"
-                  blobImages={parseBlobImages(p.imageKey)}
-                />
-              </Link>
-              <Link href={`/products/${p.slug}`} className="font-medium hover:text-[var(--prg-accent)]">
-                {p.displayName}
-              </Link>
-              {p.featured && (
-                <span className="prg-badge prg-badge--teal text-[9px] py-0.5 px-2">Featured</span>
-              )}
-            </div>
-          </td>
-          <td className="py-3 px-4 text-xs text-[var(--prg-text-muted)]">{p.dosage}</td>
-          <td className="py-3 px-4 text-xs font-mono">{p.sku}</td>
-          <td className="py-3 px-4 text-right font-medium whitespace-nowrap">{formatPrice(p.price)}</td>
-          <td className="py-3 px-4 text-right text-xs text-[var(--prg-text-muted)] whitespace-nowrap">
-            {formatPrice(p.kitPrice)}
-          </td>
-          <td className="py-3 px-4 text-right">
-            <button
-              onClick={() => onAdd(p)}
-              disabled={!p.inStock || addedIds.has(p.id)}
-              className={`px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.5px] rounded-[6px] text-white whitespace-nowrap transition-colors ${
-                addedIds.has(p.id)
-                  ? "bg-[var(--prg-success)]"
-                  : "bg-[var(--prg-accent)] hover:bg-[var(--prg-accent-hover)]"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {addedIds.has(p.id) ? (
-                <span className="flex items-center gap-1">
-                  <Check size={12} /> Added
-                </span>
-              ) : p.inStock ? (
-                "Add"
-              ) : (
-                "Sold Out"
-              )}
-            </button>
-          </td>
-        </tr>
-      ))}
+      {products.map((p) => {
+        const variants = p.variants ?? [];
+        const firstVar = variants[0];
+        const capColor = firstVar?.capColor ?? "#0d9488";
+        const prices = variants.map((v) => v.price).filter(Boolean);
+        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+        const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+        const priceStr =
+          prices.length <= 1 || minPrice === maxPrice
+            ? formatPrice(minPrice)
+            : `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}`;
+        const hasStock = variants.some((v) => v.inStock);
+
+        return (
+          <tr key={p.id} className="border-b border-[#f1f5f9] hover:bg-[var(--prg-bg-alt)]">
+            <td className="py-3 px-4">
+              <div className="flex items-center gap-3">
+                <Link href={`/products/${p.slug}`} className="shrink-0">
+                  <ProductImage
+                    slug={p.slug}
+                    capColor={capColor}
+                    alt={`${p.name} research peptide`}
+                    variant="table"
+                    blobImages={parseBlobImages(p.imageKey || firstVar?.imageKey || null)}
+                  />
+                </Link>
+                <Link href={`/products/${p.slug}`} className="font-medium hover:text-[var(--prg-accent)]">
+                  {p.name}
+                </Link>
+                {p.featured && (
+                  <span className="prg-badge prg-badge--teal text-[9px] py-0.5 px-2">Featured</span>
+                )}
+              </div>
+            </td>
+            <td className="py-3 px-4 text-xs text-[var(--prg-text-muted)] font-mono">
+              {variants.map((v) => v.dosage).join(" • ")}
+            </td>
+            <td className="py-3 px-4 text-right font-medium text-[var(--prg-accent)] whitespace-nowrap">
+              {priceStr}
+            </td>
+            <td className="py-3 px-4 text-right">
+              <button
+                onClick={() => onAdd(p)}
+                disabled={!hasStock || addedIds.has(p.id)}
+                className={`px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.5px] rounded-[6px] text-white whitespace-nowrap transition-colors ${
+                  addedIds.has(p.id)
+                    ? "bg-[var(--prg-success)]"
+                    : "bg-[var(--prg-accent)] hover:bg-[var(--prg-accent-hover)]"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {addedIds.has(p.id) ? (
+                  <span className="flex items-center gap-1">
+                    <Check size={12} /> Added
+                  </span>
+                ) : hasStock ? (
+                  "Add"
+                ) : (
+                  "Sold Out"
+                )}
+              </button>
+            </td>
+          </tr>
+        );
+      })}
     </>
   );
 }
