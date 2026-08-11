@@ -116,9 +116,13 @@ async function seedAdminUser() {
   const adminEmail = process.env.ADMIN_EMAIL ?? "admin@phaseresearch.org";
   const adminPassword = process.env.ADMIN_PASSWORD ?? "admin12345";
 
-  const existing = await db.user.findUnique({ where: { email: adminEmail } });
+  const existing = await db.user.findFirst({
+    where: {
+      OR: [{ email: adminEmail }, { username: "admin" }],
+    },
+  });
   if (existing) {
-    console.log(`✓ Admin user already exists (${adminEmail})`);
+    console.log(`✓ Admin user already exists (${existing.email})`);
     return;
   }
 
