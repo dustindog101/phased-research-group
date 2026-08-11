@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Minus, Plus, ShoppingCart, Check, ChevronRight, FlaskConical } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { VialSVG } from "@/components/store/VialSVG";
-import { ProductImage, parseBlobImages } from "@/components/store/product-image";
+import { ProductImage, parseBlobImages, resolveProductImageBlob } from "@/components/store/product-image";
 import { formatPrice, DEFAULT_PRODUCT_DESCRIPTION } from "@/lib/constants";
 import type { ProductWithVariants } from "@/lib/products";
 import type { ProductVariant } from "@prisma/client";
@@ -62,14 +62,8 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
   const sku = activeVariant?.sku ?? "";
   const coaUrl = activeVariant?.coaUrl ?? product.description;
 
-  // Resolve best image key: active variant image > parent product image > any variant image
-  const resolvedImageKey =
-    activeVariant?.imageKey ||
-    product.imageKey ||
-    variants.find((v) => v.imageKey)?.imageKey ||
-    null;
-
-  const blobImages = parseBlobImages(resolvedImageKey);
+  // Resolve best image blob: active variant image > parent product image > any sibling variant image
+  const blobImages = resolveProductImageBlob(product, activeVariant?.id);
 
   const handleAddToCart = () => {
     if (!activeVariant) return;

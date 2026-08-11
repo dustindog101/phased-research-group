@@ -11,7 +11,7 @@ interface ProductImageProps {
   variant: "card" | "detail" | "thumb" | "table";
   className?: string;
   priority?: boolean;
-  /** Blob image URLs (from product.imageKey). If provided, used instead of static file. */
+  /** Blob image URLs (from product.imageKey or variant.imageKey). If provided, used instead of static file. */
   blobImages?: Record<string, string> | null;
 }
 
@@ -19,8 +19,8 @@ interface ProductImageProps {
  * ProductImage — shows high-resolution Retina product photo when available, falls back to SVG vial.
  *
  * Image sources (in priority order):
- * 1. blobImages (from Vercel Blob, uploaded via admin) — uses "blob:" prefix in product.imageKey
- * 2. Static file at /products/{slug}/{size}.webp (from optimize-product-image.ts script)
+ * 1. blobImages (from Vercel Blob, uploaded via admin for product or any of its variations) — uses "blob:" prefix
+ * 2. Static file at /products/{slug}/{size}.webp
  * 3. SVG vial fallback
  */
 
@@ -69,14 +69,54 @@ export function ProductImage({
 }
 
 /**
- * Parse product.imageKey field into blob image URLs.
- * Returns null if no blob images (static file or fallback will be used).
+ * Parse product.imageKey or variant.imageKey field into blob image URLs dictionary.
+ * Returns null if no blob images.
  */
-export function parseBlobImages(imageKey: string | null): Record<string, string> | null {
+export function parseBlobImages(imageKey?: string | null): Record<string, string> | null {
   if (!imageKey || !imageKey.startsWith("blob:")) return null;
   try {
     return JSON.parse(imageKey.replace("blob:", ""));
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolves the best available blob image key for a product and active variant.
+ * Ensures an image is ALWAYS displayed if either the parent compound or any of its variations has an image uploaded.
+ * Priority:
+ * 1. activeVariant.imageKey
+ * 2. product.imageKey (parent image)
+ * 3. Any sibling variant's imageKey
+ */
+export function resolveProductImageBlob(
+  product?: { imageKey?: string | null; variants?: Array<{ id?: string; imageKey?: string | null }> } | null,
+  activeVariantId?: string | null
+): Record<string, string> | null {
+  if (!product) return null;
+  const variants = product.variants ?? [];
+
+  // 1. Check active variant's imageKey
+  if (activeVariantId) {
+    const active = variants.find((v) => v.id === activeVariantId);
+    if (active?.imageKey && active.imageKey.startsWith("blob:")) {
+      const parsed = parseBlobImages(active.imageKey);
+      if (parsed) return parsed;
+    }
+  }
+
+  // 2. Check parent product's imageKey
+  if (product.imageKey && product.imageKey.startsWith("blob:")) {
+    const parsed = parseBlobImages(product.imageKey);
+    if (parsed) return parsed;
+  }
+
+  // 3. Check any variant's imageKey
+  const variantWithImage = variants.find((v) => v.imageKey && v.imageKey.startsWith("blob:"));
+  if (variantWithImage?.imageKey) {
+    const parsed = parseBlobImages(variantWithImage.imageKey);
+    if (parsed) return parsed;
+  }
+
+  return null;
 }

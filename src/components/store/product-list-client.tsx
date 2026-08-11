@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "@/hooks/useCart";
-import { ProductImage, parseBlobImages } from "@/components/store/product-image";
+import { ProductImage, resolveProductImageBlob } from "@/components/store/product-image";
 import { formatPrice, CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 import { Search, Check } from "lucide-react";
@@ -208,7 +208,7 @@ function CategoryGroup({
                     capColor={capColor}
                     alt={`${p.name} research peptide`}
                     variant="table"
-                    blobImages={parseBlobImages(p.imageKey || firstVar?.imageKey || null)}
+                    blobImages={resolveProductImageBlob(p)}
                   />
                 </Link>
                 <Link href={`/products/${p.slug}`} className="font-medium hover:text-[var(--prg-accent)]">
