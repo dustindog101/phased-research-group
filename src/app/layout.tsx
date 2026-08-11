@@ -23,7 +23,16 @@ const oswald = Oswald({
 // Force all pages to be dynamically rendered (database-backed app, no static prerendering)
 export const dynamic = "force-dynamic";
 
+const getBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "https://phaseresearch.org";
+};
+
+const baseUrl = getBaseUrl();
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: {
     default: "Phase Research Group — Premium Research Peptides",
     template: "%s | Phase Research Group",
@@ -43,10 +52,44 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  icons: {
+    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
   openGraph: {
     title: "Phase Research Group — Premium Research Peptides",
-    description: "Laboratory-grade research peptides. Third-party tested. COA available.",
+    description:
+      "Laboratory-grade research peptides. Third-party lab tested with Certificates of Analysis (COA) available for every batch.",
+    url: baseUrl,
+    siteName: "Phase Research Group",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Phase Research Group — Premium Research Peptides",
+        type: "image/png",
+      },
+    ],
+    locale: "en_US",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Phase Research Group — Premium Research Peptides",
+    description:
+      "Laboratory-grade research peptides. Third-party lab tested with Certificates of Analysis (COA) available for every batch.",
+    site: "@phaseresearch",
+    creator: "@phaseresearch",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Phase Research Group — Premium Research Peptides",
+      },
+    ],
   },
 };
 
