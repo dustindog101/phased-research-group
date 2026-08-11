@@ -1,6 +1,6 @@
 /**
  * Product data access helpers (server-side)
- * Handles Parent Products and Child ProductVariants
+ * Queries parent compounds with nested dosage variants
  */
 
 import { db } from "@/db";
@@ -20,7 +20,7 @@ export async function getFeaturedProducts(limit = 8): Promise<ProductWithVariant
     },
     orderBy: { name: "asc" },
     take: limit,
-  });
+  }) as Promise<ProductWithVariants[]>;
 }
 
 export async function getAllProducts(): Promise<ProductWithVariants[]> {
@@ -31,15 +31,13 @@ export async function getAllProducts(): Promise<ProductWithVariants[]> {
       },
     },
     orderBy: [{ category: "asc" }, { name: "asc" }],
-  });
+  }) as Promise<ProductWithVariants[]>;
 }
 
 export async function getProductBySlug(slug: string): Promise<ProductWithVariants | null> {
-  const normSlug = slug.toLowerCase().trim();
-
-  // 1. Try finding by direct parent slug
+  const cleanSlug = slug.toLowerCase().trim();
   const parent = await db.product.findUnique({
-    where: { slug: normSlug },
+    where: { slug: cleanSlug },
     include: {
       variants: {
         orderBy: { sortOrder: "asc" },
@@ -47,14 +45,14 @@ export async function getProductBySlug(slug: string): Promise<ProductWithVariant
     },
   });
 
-  if (parent) return parent;
+  if (parent) return parent as ProductWithVariants;
 
-  // 2. Legacy Fallback: Try finding by variant SKU or legacy slug format (e.g. "prg-bpc-157-5mg")
+  // Legacy fallback: lookup by variant SKU or legacy dosage slug (e.g. bpc-157-5mg)
   const variant = await db.productVariant.findFirst({
     where: {
       OR: [
-        { sku: { equals: normSlug, mode: "insensitive" } },
-        { sku: { equals: `PRG-${normSlug.toUpperCase()}`, mode: "insensitive" } },
+        { sku: cleanSlug.toUpperCase() },
+        { sku: `PRG-${cleanSlug.toUpperCase()}` },
       ],
     },
     include: {
@@ -68,7 +66,9 @@ export async function getProductBySlug(slug: string): Promise<ProductWithVariant
     },
   });
 
-  if (variant) return variant.product;
+  if (variant?.product) {
+    return variant.product as ProductWithVariants;
+  }
 
   return null;
 }
@@ -82,11 +82,11 @@ export async function getProductsByCategory(category: string): Promise<ProductWi
       },
     },
     orderBy: { name: "asc" },
-  });
+  }) as Promise<ProductWithVariants[]>;
 }
 
 export async function searchProducts(query: string): Promise<ProductWithVariants[]> {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return getAllProducts();
 
   return db.product.findMany({
@@ -94,7 +94,6 @@ export async function searchProducts(query: string): Promise<ProductWithVariants
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { categoryLabel: { contains: q, mode: "insensitive" } },
-        { description: { contains: q, mode: "insensitive" } },
         {
           variants: {
             some: {
@@ -114,5 +113,5 @@ export async function searchProducts(query: string): Promise<ProductWithVariants
       },
     },
     orderBy: { name: "asc" },
-  });
+  }) as Promise<ProductWithVariants[]>;
 }
