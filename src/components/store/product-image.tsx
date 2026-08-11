@@ -19,7 +19,7 @@ interface ProductImageProps {
  * ProductImage — shows high-resolution Retina product photo when available, falls back to SVG vial.
  *
  * Image sources (in priority order):
- * 1. blobImages (from Vercel Blob, uploaded via admin for product or any of its variations)
+ * 1. blobImages (from Vercel Blob or uploaded URL for product or ANY of its variations)
  * 2. Static file at /products/{slug}/{size}.webp
  * 3. Legacy static path at /products/prg-{slug}-10mg/{size}.webp
  * 4. SVG vial fallback
@@ -84,20 +84,30 @@ export function ProductImage({
 
 /**
  * Parse product.imageKey or variant.imageKey field into blob image URLs dictionary.
- * Returns null if no blob images.
+ * Accepts blob JSON dict, direct Vercel Blob URL, or external HTTPS URL.
  */
 export function parseBlobImages(imageKey?: string | null): Record<string, string> | null {
-  if (!imageKey || !imageKey.startsWith("blob:")) return null;
-  try {
-    return JSON.parse(imageKey.replace("blob:", ""));
-  } catch {
-    return null;
+  if (!imageKey) return null;
+
+  if (imageKey.startsWith("blob:")) {
+    try {
+      return JSON.parse(imageKey.replace("blob:", ""));
+    } catch {
+      const url = imageKey.replace("blob:", "");
+      return { lg: url, md: url, sm: url, thumb: url };
+    }
   }
+
+  if (imageKey.startsWith("http://") || imageKey.startsWith("https://") || imageKey.startsWith("/")) {
+    return { lg: imageKey, md: imageKey, sm: imageKey, thumb: imageKey };
+  }
+
+  return null;
 }
 
 /**
  * Resolves the best available blob image key for a product and active variant.
- * Ensures an image is ALWAYS displayed if either the parent compound or any of its variations has an image uploaded.
+ * Ensures an image is ALWAYS displayed if either the parent compound OR ANY of its variations has an image.
  * Priority:
  * 1. activeVariant.imageKey
  * 2. product.imageKey (parent image)
@@ -113,23 +123,24 @@ export function resolveProductImageBlob(
   // 1. Check active variant's imageKey
   if (activeVariantId) {
     const active = variants.find((v) => v.id === activeVariantId);
-    if (active?.imageKey && active.imageKey.startsWith("blob:")) {
+    if (active?.imageKey) {
       const parsed = parseBlobImages(active.imageKey);
       if (parsed) return parsed;
     }
   }
 
   // 2. Check parent product's imageKey
-  if (product.imageKey && product.imageKey.startsWith("blob:")) {
+  if (product.imageKey) {
     const parsed = parseBlobImages(product.imageKey);
     if (parsed) return parsed;
   }
 
-  // 3. Check any variant's imageKey
-  const variantWithImage = variants.find((v) => v.imageKey && v.imageKey.startsWith("blob:"));
-  if (variantWithImage?.imageKey) {
-    const parsed = parseBlobImages(variantWithImage.imageKey);
-    if (parsed) return parsed;
+  // 3. Check ANY variant's imageKey across all variations
+  for (const v of variants) {
+    if (v.imageKey) {
+      const parsed = parseBlobImages(v.imageKey);
+      if (parsed) return parsed;
+    }
   }
 
   return null;
