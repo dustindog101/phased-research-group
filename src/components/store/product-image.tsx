@@ -19,9 +19,10 @@ interface ProductImageProps {
  * ProductImage — shows high-resolution Retina product photo when available, falls back to SVG vial.
  *
  * Image sources (in priority order):
- * 1. blobImages (from Vercel Blob, uploaded via admin for product or any of its variations) — uses "blob:" prefix
+ * 1. blobImages (from Vercel Blob, uploaded via admin for product or any of its variations)
  * 2. Static file at /products/{slug}/{size}.webp
- * 3. SVG vial fallback
+ * 3. Legacy static path at /products/prg-{slug}-10mg/{size}.webp
+ * 4. SVG vial fallback
  */
 
 // High-resolution Retina density source mapping (provides 2x - 4x pixel density for tack-sharp displays)
@@ -41,13 +42,26 @@ export function ProductImage({
   priority = false,
   blobImages,
 }: ProductImageProps) {
-  const [errored, setErrored] = useState(false);
+  const [fallbackStep, setFallbackStep] = useState(0);
   const config = SIZE_MAP[variant];
 
-  // Determine image source: blob URL > static file > SVG fallback
-  const imageSrc = blobImages?.[config.src] ?? `/products/${slug}/${config.src}.webp`;
+  // Try blobImages > static slug path > legacy prg-slug-10mg path > SVG vial
+  const staticPath = `/products/${slug}/${config.src}.webp`;
+  const legacyPath = `/products/prg-${slug}-10mg/${config.src}.webp`;
 
-  if (errored) {
+  let imageSrc = blobImages?.[config.src];
+  if (!imageSrc) {
+    if (fallbackStep === 0) imageSrc = staticPath;
+    else if (fallbackStep === 1) imageSrc = legacyPath;
+  }
+
+  const handleImageError = () => {
+    if (fallbackStep < 2) {
+      setFallbackStep((s) => s + 1);
+    }
+  };
+
+  if (!imageSrc || fallbackStep >= 2) {
     if (variant === "table") return <VialThumb capColor={capColor} size={40} />;
     if (variant === "thumb") return <VialThumb capColor={capColor} size={80} />;
     return <VialSVG capColor={capColor} size={variant === "card" ? 120 : 280} className={className} />;
@@ -61,7 +75,7 @@ export function ProductImage({
       height={config.height}
       className={className}
       priority={priority}
-      onError={() => setErrored(true)}
+      onError={handleImageError}
       sizes={variant === "detail" ? "(max-width: 768px) 100vw, 800px" : `${config.width * 2}px`}
       unoptimized={!!blobImages} // Blob URLs are already optimized at high resolution
     />
