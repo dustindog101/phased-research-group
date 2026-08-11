@@ -25,14 +25,18 @@ export function ShopClient({ products }: ShopClientProps) {
   const [page, setPage] = useState(1);
   const PER_PAGE = 12;
 
-  // Sync category/query changes to URL (no page reset here — handled in handlers)
+  // Sync category/query changes to URL without triggering network requests
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (category !== "all") params.set("category", category);
-    if (query) params.set("q", query);
-    const qs = params.toString();
-    router.replace(qs ? `/shop?${qs}` : "/shop", { scroll: false });
-  }, [category, query, router]);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams();
+      if (category !== "all") params.set("category", category);
+      if (query) params.set("q", query);
+      const qs = params.toString();
+      const url = new URL(window.location.href);
+      url.search = qs;
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, [category, query]);
 
   const handleCategoryChange = (newCategory: string) => {
     setCategory(newCategory);

@@ -85,6 +85,7 @@ async function processIntent(
   intent: {
     id: string;
     orderId: string;
+    asset: string;
     expectedAtomic: string;
     txHash: string | null;
     status: string;
@@ -323,6 +324,7 @@ export async function watchSingleOrder(orderId: string): Promise<{
     {
       id: intent.id,
       orderId: intent.orderId,
+      asset: intent.asset,
       expectedAtomic: intent.expectedAtomic,
       txHash: intent.txHash,
       status: intent.status,
