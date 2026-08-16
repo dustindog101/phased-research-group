@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ShieldCheck, CheckCircle2, Truck, Lock, AlertTriangle, FlaskConical, FileText } from "lucide-react";
 import { getFeaturedProducts } from "@/lib/products";
 import { ProductCard } from "@/components/store/product-card";
-import { VialSVG } from "@/components/store/VialSVG";
 import { CATEGORIES } from "@/lib/constants";
 
 export default async function HomePage() {
@@ -117,29 +116,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Vial showcase */}
-      <section className="py-16 bg-[var(--prg-bg-alt)]">
-        <div className="prg-container">
-          <div className="flex justify-center gap-12 flex-wrap">
-            <div className="w-[200px] text-center">
-              <div className="flex justify-center mb-3">
-                <VialSVG capColor="#0d9488" size={180} />
-              </div>
-              <span className="text-xs text-[var(--prg-text-muted)] uppercase tracking-[1px]">
-                Metabolic Peptides
-              </span>
-            </div>
-            <div className="w-[200px] text-center">
-              <div className="flex justify-center mb-3">
-                <VialSVG capColor="#2563eb" size={180} />
-              </div>
-              <span className="text-xs text-[var(--prg-text-muted)] uppercase tracking-[1px]">
-                Healing & Recovery
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Featured products */}
       <section className="py-20">
